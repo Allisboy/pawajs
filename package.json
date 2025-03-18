@@ -1,0 +1,26 @@
+{
+  "name": "pawajs",
+  "version": "1.0.0",
+  "description": "pawajs library for easy building",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Allisboy/pawajs.git"
+  },
+  "keywords": [
+    "pawajs",
+    "for",
+    "building",
+    "web",
+    "ui"
+  ],
+  "author": "Allwell Oriso-owubo Owupele",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Allisboy/pawajs/issues"
+  },
+  "homepage": "https://github.com/Allisboy/pawajs#readme"
+}
