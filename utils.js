@@ -1,4 +1,4 @@
-import { ComponentProps } from "./classes";
+import { ComponentProps } from "./classes.js";
 
 export const replaceOperators = (expression) => {
   return expression
