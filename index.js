@@ -406,7 +406,7 @@ const createDeepProxy = (target, callback) => {
   
     createEffect(() => {
       evaluate();
-    });
+    },el);
   };
 
   export const ref=(id)=>{
@@ -451,7 +451,7 @@ const createDeepProxy = (target, callback) => {
   
     createEffect(() => {
       evaluate();
-    });
+    },el);
   };  
   export const setPlugin=(...callback)=>{
    callback.forEach(c =>{
