@@ -43,22 +43,27 @@ RegisterComponent(Counter)
 ```
 
 
+# html way to create a counter
+
 ```html
-    <div id="app" class="pawa-loader">
-        <div state-name="'pawa js'">
-            <h1>@{name.value} @{text}</h1>
-        </div>
-        <Text></Text>
-    </div>
+   <div id="app">
+  <div state-count="0">
+    
+      <h1>@{count.value}</h1>
+   
+    <button on-click="count.value++">count ++</button>
+  </div>
+   
+</div>
 ```
 
-# set pawa-loader style for better ui
+# you can use template element for better ui
+#it won't work for SSR with template 
+* meant to use in html not component 
 ```html
-    <style>
-        .pawa-loader{
-            display:none;
-        }
-    </style> 
+    <template>
+        <h1>@{count.value}</h1>
+    </template> 
 ```
 # pawa js if Attributes
 
@@ -86,14 +91,6 @@ RegisterComponent(Counter)
         </div>
     </div>
 ```
-# pawa js Dynamic If Attributes *note dynamic attributes can't be used in jsx
-
-```html
-    <div if[name.value]="console.log(true)">
-        
-    </div>
-```
-
 
 # for cdn
 
