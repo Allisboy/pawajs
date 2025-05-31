@@ -1,52 +1,31 @@
   export let activeEffect = null;
   export const targetMap = new WeakMap();
   export const listeners = new WeakMap();
-  export const compoListener=new Set()
   export const disconnectedEffects = new Map();
   export const templateCache = new Map()
   export const componentInstances = new Map()
   export const componentMount=new Map()
-  export const componentHook=new Map()
-  let queue = new Set();
-  let isFlushing = false;
+ let queue = new Set();
+let isFlushing = false;
+let deleteEffect = new Set();
 
-  export const queueEffect = (effect) => {
-    queue.add(effect);
-    if (!isFlushing) {
-      isFlushing = true;
-      Promise.resolve().then(() => {
-        queue.forEach((effect) => effect());
+export const queueEffect = (effect) => {
+  if (!queue.has(effect)) queue.add(effect);
+  if (!isFlushing) {
+    isFlushing = true;
+    Promise.resolve().then(() => {
+      while (queue.size) {
+        const effects = Array.from(queue);
         queue.clear();
-        isFlushing = false;
-      });
-    }
-  };
- export const componentsHook=()=>{
-    let callback;
-    // componentHook.forEach(h=>{
-    //   h.
-    // })
-    componentHook.forEach((value,key)=>{
-      if(key.isConnected){
-        return
-      }else{
-      callback=value
-      callback()
-      callback=null
-      componentHook.delete(key)
+        for (const fn of effects) {
+          if (!deleteEffect.has(fn)) fn();
+        }
       }
-    })
+      isFlushing = false;
+    });
   }
-  const isConnectedToDOM = (effect) => {
-    
-    if (!effect.el) return true; // If no element, assume always active
-    let el = effect.el;
-    while (el) {
-      if (!el.isConnected) return false;
-      el = el.parentElement;
-    }
-    return true;
-  };
+};
+
   const trackLatestState = (effect) => {
     if (!effect.el) return;
     
@@ -92,27 +71,22 @@
 
     // Run effect initially in batch
     runEffect();
-
-    if (el) {
-        const observer = new MutationObserver(() => {
-    
-            if (isConnectedToDOM(effect)) {
-                trackLatestState(effect); // Immediately update on reconnection
-                runEffect(); // Schedule batched update
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-        effect.observer = observer;
-    }
-
+if (el) {
+  const deletes=() => {
+      deleteEffect.add(effect)
+  }
+  
+  el._terminateEffects.add(deletes)
+}
     return effect;
 };
 
   
 
 export const track = (target, key) => {
+  
   if (activeEffect) {
+    
     let depsMap = targetMap.get(target);
     if (!depsMap) {
       targetMap.set(target, (depsMap = new Map()));
@@ -121,27 +95,18 @@ export const track = (target, key) => {
     if (!dep) {
       depsMap.set(key, (dep = new Set()));
     }
-
-    if (isConnectedToDOM(activeEffect)) {
-      
-      dep.add(activeEffect);
-      disconnectedEffects.delete(activeEffect);
-    } else {
-      // Store effect separately for when it reconnects
-      let depSet = disconnectedEffects.get(target);
-      if (!depSet) {
-        disconnectedEffects.set(target, (depSet = new Map()));
-      }
-      let keyDep = depSet.get(key);
-      if (!keyDep) {
-        depSet.set(key, (keyDep = new Set()));
-      }
-      keyDep.add(activeEffect);
-      dep.delete(activeEffect); // Remove from active tracking
-    }
+dep.add(activeEffect);
+    
   }
 };
 
+export const stopEffect = (effect,depsMap) => {
+    for (const [key, depSet] of depsMap) {
+      depSet.delete(effect);
+    }
+  // 3. Remove from deleteEffect
+  deleteEffect.delete(effect);
+};
 
 export const trigger = (target, key) => {
   const depsMap = targetMap.get(target);
@@ -149,30 +114,17 @@ export const trigger = (target, key) => {
     const dep = depsMap.get(key);
     if (dep) {
       
-      dep.forEach(effect => queueEffect(effect));
+      dep.forEach(effect =>{
+        
+        if (!deleteEffect.has(effect)) {
+          queueEffect(effect);
+        } else {
+          stopEffect(effect,depsMap)
+        }
+      })
+      
     }
   }
-
-  // If an effect reconnects, move it back to active tracking
-  const disconnectedDep = disconnectedEffects.get(target)?.get(key);
-  if (disconnectedDep) {
-    disconnectedDep.forEach((effect) => {
-
-      if (isConnectedToDOM(effect)) {
-
-        track(target, key); // Re-track effect when reconnected
-        queueEffect(effect);
-      }
-    });
-  }
-
-    // Update affected components
-    componentInstances.forEach((instance, id) => {
-      // console.log(target, instance.deps)
-      if (instance.deps?.has(key)) {
-        updateComponent(id)
-      }
-    })
 };
 
 
