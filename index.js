@@ -895,7 +895,8 @@ export const pawaStartApp=(app,callback) => {
    setContext,
    $state,
    pawaComponent,
-   pawaStartApp
+   pawaStartApp,
+   RegisterComponent,
+   runEffect
  }
- 
  export default Pawa
