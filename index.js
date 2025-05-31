@@ -123,7 +123,7 @@ if (!stateContext._transportContext) {
     }
     
 }
-export const getContext=(context) => {
+export const useContext=(context) => {
     if (!stateContext) {
        console.warn('getContext must be called inside of a component')
   return
@@ -134,7 +134,7 @@ if (stateContext._transportContext[context.id]) {
   console.warn('this component not in the context tree')
 }
 }
-export const awaiting= (...promise) => {
+export const useAsync= (...promise) => {
     if (stateContext._hasRun) {
       const then=()=>true
       return {then}
@@ -152,7 +152,7 @@ export const awaiting= (...promise) => {
     return {then}
 }
 
-export const insert = (obj={}) => {
+export const useInsert = (obj={}) => {
     if (stateContext._hasRun) {
       return
     }
@@ -240,10 +240,7 @@ const promiseCallback= (promise,main) => {
       states.value=initialValue
     }
     if (localStore) {
-      const sanitizeTemplate = (temp) => {
-  if (typeof temp !== 'string') return '';
-  return temp.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, '');
-};
+      
       try {
         if (localStorage.getItem(localStore)) {
   const stored = JSON.parse(sanitizeTemplate(localStorage.getItem(localStore)))
@@ -888,4 +885,17 @@ export const pawaStartApp=(app,callback) => {
      render(app)
  }
  
+ const Pawa={
+   useAsync,
+   useInsert,
+   useContext,
+   useValidateProps,
+   setPlugin,
+   setPawaAttributes,
+   setContext,
+   $state,
+   pawaComponent,
+   pawaStartApp
+ }
  
+ export default Pawa
