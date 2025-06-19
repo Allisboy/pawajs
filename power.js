@@ -1,13 +1,14 @@
 import {createEffect} from './reactive.js';
-import {render,$state} from './index.js';
+import {render,$state,keepContext,getCurrentContext} from './index.js';
 import {PawaComment} from './pawaElement.js';
-import {processNode} from './utils.js';
+import {processNode,pawaWayRemover} from './utils.js';
 export const If = (el,attr,stateContext,tree) => {
     if (el._running) {
     return
 }
-tree.running=true
 
+
+tree.running=true
     el._running=true
     el._tree.thisSame=true
     const comment=document.createComment(`if (${el._attr.if})`)
@@ -43,28 +44,21 @@ const values = keys.map((key) => resolvePath(key, context));
 const condition=new Function(...keys,`return ${el._attr.if}`)(...values)
         if (condition) {
             firstEnter=true
+            
             if (comment.nextSibling !== endComment) {
                 return
             }
-       const newElement=el._attrElement('if')
-       
-       parent.insertBefore(newElement,endComment)
-       
-       render(newElement,context,tree)
-        
+       const newElement=el._attrElement('if')       
+       if (stateContext._hasRun) {
+           stateContext._hasRun=false
+           keepContext(stateContext)
+       }
+        parent.insertBefore(newElement,endComment)
+        render(newElement,el._context,tree)
+        newElement._tree.pawaAttributes['if']=attr.value
         } else {
             if (firstEnter) {
-                while (comment.nextSibling) {
-                    if (comment.nextSibling === endComment) {
-                       return  
-                    } else {
-                     if (comment.nextSibling.nodeType === 8) {
-                comment.nextSibling.remove()    
-                        } else if (comment.nextSibling.nodeType === 1) {
-                         comment.nextSibling._remove()   
-                        }
-                    }
-                }
+                pawaWayRemover(comment,endComment)
             }
         }
         
@@ -80,10 +74,11 @@ const condition=new Function(...keys,`return ${el._attr.if}`)(...values)
     },el)
 }
 
-export const event=(el,attr) => {
+export const event=(el,attr,stateContext) => {
     if (el._running) {
         return
     }
+//    console.log(stateContext)
     const splitName=attr.name.split('-')
     const eventType=splitName[1]
     el.removeAttribute(attr.name)
@@ -136,17 +131,7 @@ const condition=new Function(...keys,`return ${elseValue}`)(...values)
         if (condition) {
             
             if (firstEnter) {
-    while (comment.nextSibling) {
-        if (comment.nextSibling === endComment) {
-            return
-        } else {
-            if (comment.nextSibling.nodeType === 8) {
-                comment.nextSibling.remove()
-            } else if (comment.nextSibling.nodeType === 1) {
-                comment.nextSibling._remove()
-            }
-        }
-    }
+                pawaWayRemover(comment,endComment)
 }
         
         } else {
@@ -157,7 +142,10 @@ if (comment.nextSibling !== endComment) {
 const newElement = el._attrElement('else')
 
 parent.insertBefore(newElement, endComment)
-
+if (stateContext._hasRun) {
+    stateContext._hasRun=false
+    keepContext(stateContext)
+}
 render(newElement, context,tree)
         }
         
@@ -178,6 +166,9 @@ export const ElseIf = (el,attr,stateContext,tree) => {
         return
     }
     el._running=true
+    const exp = new WeakMap()
+    const elsePrimitive = {key:elseIfValue}
+    const ifPrimitive={key:ifValue}
     el._tree.thisSame=true
     const elseIfValue=el.getAttribute('else-if')
     const ifValue=el.getAttribute('data-if')
@@ -205,22 +196,17 @@ const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, context));
-const condition=new Function(...keys,`return ${ifValue}`)(...values)
-const elseCondition=new Function(...keys,`return ${elseIfValue}`)(...values)
+
+if (!exp.has(elsePrimitive) && !exp.has(ifPrimitive)) {
+     exp.set(ifPrimitive, new Function(...keys, `return ${ifValue}`))
+    exp.set(elsePrimitive, new Function(...keys, `return ${elseIfValue}`))
+}
+const condition = exp.get(ifPrimitive)(...values)
+const elseCondition = exp.get(elsePrimitive)(...values)
         if (condition) {
             
             if (firstEnter) {
-    while (comment.nextSibling) {
-        if (comment.nextSibling === endComment) {
-            return
-        } else {
-            if (comment.nextSibling.nodeType === 8) {
-                comment.nextSibling.remove()
-            } else if (comment.nextSibling.nodeType === 1) {
-                comment.nextSibling._remove()
-            }
-        }
-    }
+                pawaWayRemover(comment,endComment)
 }
         
         } else if(elseCondition) {
@@ -231,7 +217,10 @@ if (comment.nextSibling !== endComment) {
 const newElement = el._attrElement('else-if')
 
 parent.insertBefore(newElement, endComment)
-
+if (stateContext._hasRun) {
+    stateContext._hasRun=false
+    keepContext(stateContext)
+}
 render(newElement, context,tree)
         } else {
             if (firstEnter) {
@@ -274,8 +263,9 @@ const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, el._context));
+const newFunc=new Function(...keys,`${attr.value}`)
 const func=() => {
-    new Function(...keys,`${attr.value}`)(...values)
+    newFunc(...values)
 }
 
 el._MountFunctions.push(func)
@@ -312,10 +302,12 @@ export const For=(el,attr,stateContext,tree)=>{
         return
     }
     el._running=true
+    const exp = new WeakMap()
+    const primitive ={key:attr.value}
     el._tree.thisSame=true
     let firstEnter=true
     const value=attr.value
-    const split=value.split('in')
+    const split=value.split(' in ')
     const arrayName=split[1]
     const arrayItems=split[0].split(',')
     const arrayItem=arrayItems[0]
@@ -339,9 +331,15 @@ const resolvePath = (path, obj) => {
 };
 const values = keys.map((key) => resolvePath(key, el._context));
 
-    const array=new Function(...keys,`
+    let array
+    if (!exp.has(primitive)) {
+    
+    const func = new Function(...keys, `
         return ${arrayName}
-    `)(...values)
+    `)
+    exp.set(primitive,func)
+    }
+    array=exp.get(primitive)(...values)
     if (!firstEnter) {
         const div=document.createElement('div')
         array.forEach((item,index)=>{
@@ -456,7 +454,24 @@ elementArray.add(child)
     })
 }
 
-
+export const ref=(el,attr) => {
+    if (el._running) {
+      return
+    }
+    try {
+      const keys = Object.keys(el._context);
+  const resolvePath = (path, obj) => {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  };
+  
+  const values = keys.map((key) => resolvePath(key, el._context))
+  new Function('el',...keys,`${attr.value}.value=el`)(el,...values)
+  el.removeAttribute(attr.name)
+    } catch (e) {
+      throw e
+    }
+  }
+  
 
 export const States=(el,attr,stateContext) => {
     
@@ -474,6 +489,7 @@ const values = keys.map((key) => resolvePath(key, el._context));
 const val=new Function(...keys,`return ${attr.value}`)(...values)
 
 el._context[name]=$state(val)
+
 if (stateContext._innerState) {
     if (stateContext._innerState.has(el)) {
         stateContext._innerState.get(el).push(el._context[name])
@@ -482,7 +498,7 @@ if (stateContext._innerState) {
         stateContext._innerState.set(el._template,[[
             name,
             el._context[name]]])
-            console.log('state',stateContext._innerState)
+            // console.log(stateContext)
        // console.log(stateContext._innerState.get(el._template),el._template)
     }
 }
