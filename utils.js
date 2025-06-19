@@ -3,7 +3,19 @@ export const splitAndAdd=(string) => {
   const join=strings[0]+strings[1]
   return join.toUpperCase()
 }
+export const pawaWayRemover=async (comment,endComment)=>{
+  if (comment.nextSibling === endComment) {
 
+    return  
+ } else {
+  if (comment.nextSibling.nodeType === 8) {
+comment.nextSibling.remove()    
+     } else if (comment.nextSibling.nodeType === 1) {
+     await comment.nextSibling._remove()   
+     }
+ }
+ pawaWayRemover(comment,endComment)
+}
 export const processNode = (node, itemContext) => {
   
   if (typeof itemContext === 'number') {
