@@ -1,11 +1,24 @@
 import { track, trigger,queueEffect, createEffect,templateCache, } from './reactive.js'
 import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
-  unMountElement,mountElement,For,States
+  unMountElement,mountElement,For,States,ref
 } from './power.js'
 import {propsValidator,sanitizeTemplate} from './utils.js';
+import {PawaDevTool} from './devTools.js';
+window.__pawaDev={
+  errors:[],
+  totalEffect:0,
+  setError:({el,msg,directives}={}) => {
+      __pawaDev.errors.push({el,msg,directives})
+      console.error(msg)
+  }
+}
 
-
+export const keepContext=(context)=>{
+  stateContext=context
+  formerStateContext=stateContext
+  
+}
 export const components=new Map()
 const plugin=new Set()
 let stateContext=null
@@ -15,7 +28,6 @@ export const getCurrentContext=() =>{
 let pawaAttributes=new Set()
 let formerStateContext=null
 let pawaContext={}
-
 
 export const setPawaAttributes=(...attr) => {
   attr.forEach((att) => {
@@ -38,6 +50,18 @@ export const setPlugin=(...plugins) => {
        }
        plugin.add(arg)
     })
+}
+export const setError = ({error}) => {
+    if (!stateContext) {
+    console.warn('must be used inside of a component')
+    return
+  }
+  if (!stateContext._hasRun) {
+    if (!stateContext?._error) {
+      stateContext._error=[]
+    }
+    stateContext?._error.push(error)
+  }
 }
 export const RegisterComponent = (...component) => {
   component.forEach((c) => {
@@ -68,22 +92,28 @@ export const runEffect=(callback,deps) => {
       if (!stateContext._hook.isMount) {
         stateContext._hook.isMount=[]
       }
-      if (!stateContext._hook.isUnMount) {
-        stateContext._hook.isUnMount=[]
+      if (!stateContext._hook.beforeMount) {
+        stateContext._hook.beforeMount=[]
+      }
+      if (!stateContext._hook.reactiveEffect) {
+        stateContext._hook.reactiveEffect=[]
       }
       if (!stateContext._hook.effect) {
         stateContext._hook.effect=[]
       }
       if (deps === undefined || deps === null) {
         stateContext._hook.isMount.push(callback)
-      } else if (typeof deps === 'string') {
-        stateContext._hook.isUnMount.push(callback)
+      } else if (typeof deps === 'object' && !Array.isArray(deps)) {
+      
+        stateContext._hook.reactiveEffect.push({deps:deps,effect:callback})
       } else if (Array.isArray(deps)) {
         
         stateContext._hook.effect.push({
           deps:deps,
           effect:callback
         })
+      } else if (typeof deps === 'number') {
+        stateContext._hook.beforeMount.push(callback)
       }
     }
 }
@@ -123,12 +153,13 @@ if (!stateContext._transportContext) {
     }
     
 }
+
 export const useContext=(context) => {
     if (!stateContext) {
        console.warn('getContext must be called inside of a component')
   return
 }
-if (stateContext._transportContext[context.id]) {
+if (stateContext?._transportContext[context.id]) {
   return stateContext._transportContext[context.id]
 } else {
   console.warn('this component not in the context tree')
@@ -152,6 +183,13 @@ export const useAsync= (...promise) => {
     return {then}
 }
 
+export const useInnerContext=()=>{
+  if (!stateContext) {
+    console.warn('must be used inside component')
+    return
+  }
+  return stateContext._elementContext
+}
 export const useInsert = (obj={}) => {
     if (stateContext._hasRun) {
       return
@@ -362,72 +400,55 @@ if (dependencies) {
     };
   };
   
-  
-  
-  const awaitElement=(el) => {
-      if (el._running) {
-  return
-}
-    const clone=el.cloneNode(true)
-    const loadDiv=document.createElement('div')
-    const errorDiv=document.createElement('div')
-    const endComment=document.createComment(`end ${el.tagName}`)
-      const comment=document.createComment(` ${el.tagName}`)
-      PawaComment.Element(endComment)
-      PawaComment.Element(comment)
-      el.replaceWith(endComment)
-      endComment.parentElement.insertBefore(comment,endComment)
-      const loader=el.querySelector('[loader]')
-      const error =el.querySelector('[error]')
-      if (loader) {
-        loadDiv.appendChild(loader)
-      }
-      if (error) {
-        errorDiv.appendChild(error)
-      }
-         const removeLoader=() => {
-          loader._remove()
-      }
-      const old=stateContext
-      console.log(old)
-      let oldState=stateContext?._formerContext
-      
-      const reset = () => {
-        
-        stateContext=old
-        formerStateContext=oldState
-          comment._removeSiblings(endComment)
-          comment.remove()
+ export const LazyLoading=({imports,children,loading,error})=>{
+ const {}= useValidateProps({
+    imports:{
+      type:Function,
+      strict:true,
+    },
+    loading:{
+      type:String,
+      default:'<div>Loading...</div>'
+    }
+  })
+    const asyncState=$state({
+      loading:false,
+      error:false,
+    })
+    const retry=()=>{
+      asyncState.value.loading=true
+        imports().then(res =>{
+
+          asyncState.value.loading=false
+        }).catch(err=>{
+          asyncState.value.loading=false
+          asyncState.value.error=true
           
-          endComment.replaceWith(clone)
-          
-          render(clone,el._context)
-          
+        })
+    }
+    runEffect(()=>{
+      if (typeof imports === 'function') {
+        retry()
       }
-      const setError=() => {
-          loader._remove()
-          if (error) {
-            endComment.parentElement.insertBefore(error,endComment)
-            el._context.tryBack=reset
-            render(error,el._context)
-          }
-      }
-      endComment._setData({
-        loader:loader?removeLoader:null,
-        error:error?setError:null
-      })
-      
-      if (loader) {
-        endComment.parentElement.insertBefore(loader,endComment)
-        render(loader,el._context)
-      }
-      Array.from(el.children).forEach((child) => {
-          endComment.parentElement.insertBefore(child,endComment)
-          render(child,el._context)
-      })
-   
-      
+    },0)
+    
+    
+    useInsert({asyncState,retry})
+    return`
+    <template>
+      <template if='asyncState.value.loading'>
+        ${loading}
+      </template>
+      <template if='asyncState.value.error'>
+        ${error}
+      </template>
+      <template if='!asyncState.value.loading'>
+       ${children}
+      </template>
+    </template>
+    `
   }
+  RegisterComponent(LazyLoading)
   
   const elementComponent= (el,appTree) => {
       if (el._running) {
@@ -463,202 +484,136 @@ if (typeof result === 'function') {
       
   }
   
-  const component =async(el,appTree) => {
+  const component =(el,appTree) => {
       if (el._running) {
         return
     }
     
     const endComment = document.createComment(`end ${el.tagName}`)
 const comment = document.createComment(` ${el.tagName}`)
+PawaComment.Element(comment)
 el.replaceWith(endComment)
+endComment.parentElement.insertBefore(comment,endComment)
+comment._componentElement=el
+comment._controlComponent=true
     const props={}
     const children=el._componentChildren
+    const slot=el._slots
     const  mount=[]
     const  unmount=[]
-    
+    const slots={}
+    Array.from(slot.children).forEach(prop =>{
+      if (prop.getAttribute('prop')) {
+        // console.log(prop);
+        
+        slots[prop.getAttribute('prop')]=prop.innerHTML
+      }else{
+        console.warn('sloting props must have prop attribute')
+      }
+    })    
     const app = {
       children,
+      ...slots,
       ...el._props
     }
     
     const div = document.createElement('div')
-
+el._componentTerminate=() => {
+    comment._terminateByComponent(endComment)
+}
 const component =el._component
 
     setStateContext(component)
+    // console.log(stateContext);
+    stateContext._elementContext={...el._context}
     stateContext._prop={children,...el._props}
     stateContext._name=el._componentName
-          
-          
 
 const compo = sanitizeTemplate(component.component(app))
 appTree.stateContext=component
-stateContext._hasRun=true
+// stateContext._hasRun=true
 
   if (component?._insert) {
     Object.assign(el._context,component._insert)
   }
-  
-    if (stateContext?._await &&  stateContext?._await.length > 0) {
-      
-     const getEndComment=endComment.nextSibling
-      Promise.all(stateContext._await).then((res)=>{
-        
-        if (stateContext?._then) {
-          stateContext._then(res)
-        }
-        
-        div.innerHTML = compo
-      
-Array.from(div.children).forEach((child) => {
-  
-  endComment.parentElement.insertBefore(child, endComment)
-  if (getEndComment?._data?.loader) {
-    getEndComment._data.loader()
-  }
-  //console.log(child)
-  render(child, el._context,appTree)
-})
-formerStateContext=stateContext._formerContext
-stateContext._hasRun=true
-if (stateContext._transportContext) {
-  let contextId=stateContext._transportContext
-  delete pawaContext[contextId]
-}
-    stateContext=formerStateContext
-
-el._component?._hook?.isMount.forEach((hook) => {
-    el._MountFunctions.push(hook)
-})
-
-
-el._unMountFunctions.forEach((func) => {
-  newElement._unMountFunctions.push(func)
-})
-setTimeout(() => {
-    el._MountFunctions.forEach((func) => {
-  let result=func()
-  if (typeof result === 'function') {
-    el._unMountFunctions.push(result)
-  }
-})
-el._component?._hook?.effect.forEach((hook) => {
-  let result=stateWatch(hook.effect,hook.deps)
-  
-})
-},50)
-      }).catch(error =>{
-        if (typeof getEndComment._data?.error === 'function') {
-          getEndComment._data.error()
-        }
-      
-      })
-    } else {
       
 div.innerHTML = compo
+      ;
+      
+if (el._component?._hook?.beforeMount) {
+  el._component?._hook?.beforeMount.forEach((bfm) => {
+ const result= bfm()
+ if (typeof result === 'function') {
+   result()
+ }
+})
+}
 el._component?._hook?.isMount.forEach((hook) => {
     el._MountFunctions.push(hook)
 })
 el._component?._hook?.isUnMount.forEach((hook) => {
     el._unMountFunctions.push(hook)
 })
+const child=div.children[0]
 
-Array.from(div.children).forEach((child) => {
-  endComment.parentElement.insertBefore(child,endComment)
-  render(child, el._context,appTree)
+if (child !== null ) {
+  if (child) {
+endComment.parentElement.insertBefore(child, endComment)
+
+stateContext?._error?.forEach((error) => {
+  throw Error(error)
 })
-formerStateContext=stateContext._formerContext
+render(child, el._context, appTree) 
+  } 
+}
+Promise.resolve().then(()=>{
+  el._component?._hook?.effect.forEach((hook) => {
+    const result=stateWatch(hook.effect,hook.deps)
+    if (typeof result === 'function') {
+      el._unMountFunctions.push(result)
+    }
+  })
+    
+  if (el._component?._hook?.reactiveEffect) {
+    el._component?._hook?.reactiveEffect.forEach((hook) => {
+      const effect=hook.effect()
+      
+      createEffect(() => {
+        return effect()
+      },hook.deps.value)
+    })
+  }
+  el._MountFunctions.forEach((func) => {
+    const result=func()
+    if (typeof result === 'function') {
+      el._unMountFunctions.push(result)
+    }
+  })
+  
+})
 stateContext._hasRun=true
+formerStateContext=stateContext._formerContext
+
 if (stateContext._transportContext) {
   let contextId = stateContext._transportContext
   delete pawaContext[contextId]
 }
-    stateContext=formerStateContext
-el._component?._hook?.effect.forEach((hook) => {
-  stateWatch(hook.effect,hook.deps)
-})
-el._MountFunctions.forEach((func) => {
-  func()
-})
-el._unMountFunctions.forEach((func) => {
-  newElement._unMountFunctions.push(func)
-})
-    }
+ stateContext=formerStateContext  
+
+   
     
     
   }
   
-  const lazyLoading=(el) => {
-    if (el._running) {
-      return
-    }
-    const loadDiv=document.createElement('div')
-    const errorDiv=document.createElement('div')
-    const name= el.getAttribute('name')
-    const importFunc = el.getAttribute('import')
-    const endComment=document.createComment('end Import')
-    const comment=PawaComment.Element(document.createComment('import'))
-    el.replaceWith(endComment)
-    
-    endComment.parentElement.insertBefore(comment,endComment)
-    const error = el.querySelector('[error-import]')
-      const loadingElement=el.querySelector('[while-fetching]')
-      if (error) {
-        errorDiv.appendChild(error)
-      }
-      if (loadingElement) {
-        loadDiv.appendChild(loadingElement)
-        
-        endComment.parentElement.insertBefore(loadingElement,endComment)
-      
-        render(loadingElement,el._context)
-      }
-    try {
-      const keys = Object.keys(el._context);
-const resolvePath = (path, obj) => {
-    return path.split('.').reduce((acc, key) => acc?.[key], obj);
-};
-const values = keys.map((key) => resolvePath(key, el._context));
-const func= new Function(...keys,`return ${importFunc}`)(...values)
-let value=func()
-if (typeof value.then === 'function') {
-      value.then(res => {
-  if (res[name]) {
-    comment._removeSiblings(endComment)
-    components.set(name.toUpperCase(),res[name])
-    
-    const element=el.firstElementChild
-    endComment.parentElement.insertBefore(element,endComment)
-    delete el._context[name]
-    render(element,el._context)
-    
-  }
-})
-    }
-    if (typeof value.catch === 'function') {
-      value.catch((e) => {
-          comment._removeSiblings(endComment)
-
-
-if (error) {
-  
-  const first = error.firstElementChild
-  endComment.parentElement.insertBefore(first, endComment)
-  render(first, el._context)
-} else {
-  throw e
-}
-      })
-    }
-    } catch (e) {
-      throw e
-    }
-    
-  }
   
   const mainAttribute = (el, exp) => {
     const attrMap = new Map();
     // Store original attribute value
+    if (exp.name.startsWith('props-')) {
+      return
+    }else if (exp.name.startsWith('$$-')) {
+      return
+    }
     attrMap.set(exp.name, exp.value);
     const removeAttribute = new Set()
     removeAttribute.add('disabled')
@@ -716,7 +671,6 @@ if (error) {
     textNodes.forEach(node => {
       nodesMap.set(node, node.nodeValue);
     });
-    
     const evaluate = () => {
       try {
         textNodes.forEach(textNode => {
@@ -750,17 +704,22 @@ if (error) {
     },el);
   };
   
-  const template=(el) => {
+  const template=(el,tree) => {
     if (el._running) {
         return
     }
+    // console.log(stateContext,el.content.children);
+    
      const comment=document.createComment('<template>')
      const endComment=document.createComment('</template>')
      el.replaceWith(endComment)
      endComment.parentElement.insertBefore(comment,endComment)
+     
      Array.from(el.content.children).forEach((child) => {
          endComment.parentElement.insertBefore(child,endComment)
-         render(child,el._context)
+         
+         render(child,el._context,tree)
+         
      })
   }
   const directives={
@@ -770,17 +729,25 @@ if (error) {
     'else-if':ElseIf,
     mount:mountElement,
     unmount:unMountElement,
-    
+    ref:ref
   }
-  export const ref=() => {
+  export const useRef=() => {
     return{value:null}
   }
-  let appRecorder
-  
-  
+export let appRecorder
+  const afterInitialRender = (cb) => {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(cb);
+  });
+};
+const withFinish = (fn) =>
+  new Promise((resolve) => {
+    fn();
+    setTimeout(() => resolve(true), 0);
+  });
  export const render= (el,contexts={},tree) => {
    if (el.tagName === 'SCRIPT') {
-     return 
+     return false
    }
    const context={
         ...contexts
@@ -790,19 +757,25 @@ if (error) {
     let appTree = {
   element: el.tagName,
   pawaAttributes: el._pawaAttribute,
-  
+  parent:tree,
+  serverKey:el.getAttribute('server-key'),
   running:false,
   thisSame:tree?.running||false,
   component:[],
   isComponent: el._componentOrTemplate || el._isElementComponent || false,
   stateContext:null,
   children:[],
+  matched:false,
+  new:false,
+  preRenderInto:false,
+  matchedNode:null,
   componentName:el._componentName,
   originalChildren:[],
   context:el._context,
   id:crypto.randomUUID(),
   el:el,
-  remove(){
+  remove:()=>{
+    
       const index=tree.children.findIndex(item => item.id === appTree.id)
       if (index !== -1) {
         tree.children.splice(index,1)
@@ -826,7 +799,7 @@ el._tree=appTree
       } else if (attr.value.includes('@{')) {
         mainAttribute(el,attr)
       } else if (attr.name.startsWith('state-')) {
-        States(el,attr,stateContext)
+        States(el,attr,getCurrentContext())
       } else if (attr.name === 'pawa-component') {
         
         elementComponent(el,appTree)
@@ -839,30 +812,28 @@ el._tree=appTree
       }
         
     })
-    if (el._elementType === 'template') {
-      template(el)
-      return
-    }
-    if (el._lazy) {
-      lazyLoading(el)
-      return
-    }
-    if (el._await) {
-      awaitElement(el)
-    }
     if (el._componentName) {
-      component(el,appTree)
+    component(el,appTree)
       return
+    }
+    if (el._elementType === 'template') {
+      template(el,appTree)
+      return true
     }
     
     if (el._out === false || el._running === false || el._componentOrTemplate !== true ) {
-      if (el._await) {
-        return
+      
+      if (el._running) {
+        return true
       }
+      // console.log(stateContext);
       Array.from(el.children).forEach((child) => {
-  render(child, context,appTree)
-})
+          render(child, context,appTree)
+      })
 el._callMount()
+
+      
+
 if (el._pawaElementComponentName) {
   formerStateContext = stateContext._formerContext
   stateContext._hasRun=true
@@ -872,17 +843,20 @@ if (el._pawaElementComponentName) {
 }
 stateContext = formerStateContext
 }
-    }
+  }
+    
  }
  
-export const pawaStartApp=(app,callback) => {
+export const pawaStartApp=(app,callback,devTools=true) => {
   if (typeof callback !=='function') {
     throw Error('must be a component function')
   }
      pawaElementComponent('@pawa-app',callback)
      app?.setAttribute('pawa-component','@pawa-app')
      appRecorder=app
-     render(app)
+  RegisterComponent(PawaDevTool)
+  render(app)
+  
  }
  
  const Pawa={
@@ -899,4 +873,5 @@ export const pawaStartApp=(app,callback) => {
    RegisterComponent,
    runEffect
  }
+ 
  export default Pawa
