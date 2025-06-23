@@ -9,36 +9,72 @@
 let isFlushing = false;
 let deleteEffect = new Set();
 
-export const queueEffect = (effect) => {
+
+
+const scheduled = new Set();
+let rafScheduled = false;
+const FRAME_BUDGET = 16; // milliseconds per frame
+let scheduleInProgress=false
+function scheduleRenderWithTimeBudget() {
+  // Avoid scheduling if nothing to run or already scheduled
+  if (scheduled.size === 0 || rafScheduled || scheduleInProgress) return;
+
+  rafScheduled = true;
+  scheduleInProgress=true
+  requestAnimationFrame(() => {
+    const start = performance.now();
+    const processed = [];
+
+    for (const fn of scheduled) {
+      const cleanUp = fn();
+      if (typeof cleanUp === 'function') cleanUp();
+      processed.push(fn);
+      if (performance.now() - start > FRAME_BUDGET) {
+        break; // Defer remaining to next frame
+      }
+    }
+
+    // Cleanup only processed effects
+    for (const fn of processed) {
+      scheduled.delete(fn);
+    }
+
+    rafScheduled = false;
+    // If more effects remain, schedule next frame
+    if (scheduled.size > 0) {
+      console.log('passed on');
+      
+      scheduleInProgress=false
+      requestAnimationFrame(scheduleRenderWithTimeBudget)
+
+    }else{
+      scheduleInProgress=false
+    }
+  });
+}
+
+export const queueEffect = (effect,depsMap) => {
   if (!queue.has(effect)) queue.add(effect);
+  __pawaDev.totalEffect=queue.size
   if (!isFlushing) {
     isFlushing = true;
     Promise.resolve().then(() => {
-      while (queue.size) {
-        const effects = Array.from(queue);
-        queue.clear();
-        for (const fn of effects) {
-          if (!deleteEffect.has(fn)) fn();
+      const effects = Array.from(queue);
+      queue.clear();
+      for (const fn of effects) {
+        if (!deleteEffect.has(fn._id)) {
+          scheduled.add(fn);
         }
       }
+      // console.log(scheduleInProgress);
+      
+      if (!scheduleInProgress) {
+        scheduleRenderWithTimeBudget();
+      } // Trigger the frame-based scheduler
       isFlushing = false;
     });
   }
 };
-
-  const trackLatestState = (effect) => {
-    if (!effect.el) return;
-    
-    for (const [target, depsMap] of disconnectedEffects.entries()) {
-      for (const [key, depSet] of depsMap.entries()) {
-        if (depSet.has(effect)) {
-          depSet.delete(effect);
-          track(target, key); // Re-track the effect
-          queueEffect(effect); // Immediately trigger update
-        }
-      }
-    }
-  };
   
   // Add parent tracking to effects
   export const createEffect = (fn, el) => {
@@ -46,10 +82,15 @@ export const queueEffect = (effect) => {
         activeEffect = effect;
         effect.el = el;
         effect.parentEl = el?.parentElement; // Track parent for deeper checks
-        fn();
+       let cleanUp= fn();
         activeEffect = null;
+        if (typeof cleanUp === 'function') {
+          return cleanUp
+        }
     };
-
+    effect._id=crypto.randomUUID()
+    effect._done=false
+    effect._dep=null
     let effectQueue = new Set();
     let isBatching = false;
 
@@ -73,10 +114,13 @@ export const queueEffect = (effect) => {
     runEffect();
 if (el) {
   const deletes=() => {
-      deleteEffect.add(effect)
+      deleteEffect.add(effect._id)
+      // console.log(effect._id,'delete');
+      // console.log(el,effect._dep);
   }
   
   el._terminateEffects.add(deletes)
+  
 }
     return effect;
 };
@@ -104,8 +148,10 @@ export const stopEffect = (effect,depsMap) => {
     for (const [key, depSet] of depsMap) {
       depSet.delete(effect);
     }
+    console.log(effect._id);
+    
   // 3. Remove from deleteEffect
-  deleteEffect.delete(effect);
+  deleteEffect.delete(effect._id);
 };
 
 export const trigger = (target, key) => {
@@ -113,14 +159,17 @@ export const trigger = (target, key) => {
   if (depsMap) {
     const dep = depsMap.get(key);
     if (dep) {
+      // console.log(dep);
       
       dep.forEach(effect =>{
         
-        if (!deleteEffect.has(effect)) {
-          queueEffect(effect);
-        } else {
-          stopEffect(effect,depsMap)
-        }
+        // console.log(effect._id);     
+        if (!deleteEffect.has(effect._id)) {
+          effect._dep=depsMap
+          // console.log(targetMap);
+          
+          queueEffect(effect,depsMap);
+        } 
       })
       
     }
