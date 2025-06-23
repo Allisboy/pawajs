@@ -5,6 +5,7 @@ export class PawaElement {
   constructor(element,context) {
     const div=document.createElement('div')
     div.appendChild(element.cloneNode(true))
+    this._resetEffects=new Set()
     this._context=context;
     this._el=element
     this._out=false;
@@ -28,6 +29,8 @@ export class PawaElement {
     this._getNode=this.getNode
     this._componentOrTemplate=false
     this._props={}
+    this._useInView=element.getAttribute('render-inview')?true:false
+    this._isView=null
     this._isElementComponent=false
     this._pawaAttribute={}
     this._setUnMount=this.setUnMounts
@@ -41,7 +44,12 @@ export class PawaElement {
     this._pawaElementComponent=null
     this._componentTerminate=null
     this._tree=null
+    this._cacheSetUp=false
+    this._effectsCache=element.getAttribute('render-inview')?this.effectsCache():null
+    this._effectsCarrier=null
     this._pawaElementComponentName=''
+    this._reCallEffect=this.reCallEffect
+    this._ElementEffects=new Map()
     if (this._lazy) {
       
       this._componentOrTemplate=true
@@ -61,6 +69,11 @@ export class PawaElement {
   }
   getChildrenTree(){
     return Array.from(this._el.children)
+  }
+  reCallEffect(){
+    this._resetEffects.forEach((call)=>{
+      call()
+    })
   }
   findPawaAttribute(){
     Array.from(this._el.attributes).forEach((attr) => {
@@ -83,7 +96,7 @@ export class PawaElement {
   runningPawaDirectives(){
     Array.from(this._el.attributes).forEach((attr) => {
         if (attr.name.startsWith('runing-')) {
-          console.log(true)
+          // console.log(true)
         }
     })
   }
@@ -127,6 +140,26 @@ export class PawaElement {
       return false
     }
   }
+  cache(){
+    if (this._el.parentElement && this._el.parentElement?._cacheSetUp) {
+      this._effectsCache=this._el.parentElement._effectsCache()
+    }
+  }
+  effectsCache(){
+    return this._el
+  }
+ async renderInView(){
+  this._cacheSetUp=true
+    const observer=new IntersectionObserver(([entry])=>{
+      if(entry.isIntersecting){
+        this._isView=true
+      }else{
+        this._isView=false
+      }
+  },{threshold:0.5})
+
+  this._MountFunctions.push(()=>{observer.disconnect()})
+  }
   
   async remove(callback){
     if (this._tree) {
@@ -137,7 +170,7 @@ export class PawaElement {
       
      try {
       const animate=this._exitAnimation().then(() => {
-           this._callUnMOunt()
+         this._callUnMOunt()
           this._out = true
           this._el.remove()
           if (callback) {
@@ -159,24 +192,26 @@ export class PawaElement {
           return true
     }
   }
-  unMount(){
+ async unMount(){
  if (this._component && this._pawaElementComponentName === '') {
    this._componentTerminate()
  } else {
       this._unMountFunctions.forEach(func => {
      func()
    })
-   this._deleteEffects()
+   this._deleteEffects()   
    Array.from(this._el.childNodes).forEach(child => {
      if (child.nodeType === 1) {
        if (child?._el) {
          child._out = true
          child._deleteEffects()
-         child._callUnMOunt()
+         child._callUnMOunt()   
        }
      } else if (child.nodeType === 8) {
        if (child?._controlComponent) {
+        //  console.log(child);
          child._remove()
+         
        }
      }
      
@@ -194,6 +229,7 @@ export class PawaElement {
   }
   elementType(){
     const tag = this._el.tagName
+   try {
     if (components.has(tag)) {
       this._elementType= 'component'
       
@@ -211,8 +247,10 @@ export class PawaElement {
       this._elementType='component'
       this._componentOrTemplate=true
       this._componentName=splitAndAdd(tag)
-      this._component=components.get(splitAndAdd(tag))
-      Array.from(this._el.querySelectorAll('props')).forEach(slot =>{
+      this._component=new PawaComponent(components.get(splitAndAdd(tag)))
+      // console.log(this._component);
+      
+      Array.from(this._el.children).forEach(slot =>{
         if (slot.tagName === 'PROPS') {
           this._slots.appendChild(slot)
         }
@@ -226,6 +264,11 @@ export class PawaElement {
       this._elementType='element'
       this._componentOrTemplate=false
     }
+   } catch (error) {
+    console.warn('from element tag identitfier be sure if its the right component',error)
+    throw new Error(error);
+    
+   }
   }
   setProps(){
     if (!this._context) {
@@ -275,13 +318,58 @@ export class PawaComment {
     this._deleteEffects=this.terminateEffects
     this._remove=this.remove
     this._terminateByComponent=this.terminate
+    this._forKey=null
+    this._forIndex=null
+    this._setKey=this.setForKey
+    this._endComment=null
+    this._keyRemover=this.keyRemoveElement
+    this._resetForKeyElement=this.forKeyResetElement
   }
   static Element(element){
     const pawa=new PawaComment(element)
     Object.assign(element,pawa)
     return element
   }
-  
+  forKeyResetElement(){
+    const fragment=document.createDocumentFragment()
+    while (this._el.nextSibling !== this._endComment) {
+      fragment.appendChild(this._el.nextSibling)
+    }
+    this._endComment.remove()
+    
+    return fragment
+  }
+ async keyRemoveElement(callback,firstElement=true){
+ const comment=this._el
+    if (!comment?.nextSibling) {
+      return
+    }
+    if (comment.nextSibling === this._endComment) {
+      
+      return  
+    } else {
+      if (comment?.nextSibling?.nodeType === 8) {
+        // console.log(comment)
+        if(comment.nextSibling?._controlComponent){
+          comment.nextSibling._remove()
+        }else{
+          comment.nextSibling.remove() 
+        }
+           
+      } else if (comment.nextSibling.nodeType === 1) {
+        if (firstElement) {
+          await comment.nextSibling._remove(callback)
+        }  else{
+          await comment.nextSibling._remove()
+        }
+        firstElement=false
+      }
+    }
+  await this._el._keyRemover(comment,firstElement)
+  }
+  setForKey(arg=String){
+    this._forKey=arg
+  }
   terminateEffects() {
   this._terminateEffects.forEach((eff) => {
     eff()
@@ -303,11 +391,14 @@ export class PawaComment {
     const comment=this._el
     if (comment._controlComponent) {
       
-      comment._componentElement._unMountFunctions.forEach(unMount =>{
+      comment?._componentElement?._unMountFunctions.forEach(unMount =>{
         unMount()
       })
-      comment._componentElement._deleteEffects()
+      comment?._componentElement?._deleteEffects()
+      // console.log('delete');
+      
       comment._deleteEffects()
+      comment.remove()
     } else {
       comment.remove()
     }
