@@ -1,7 +1,7 @@
 import { track, trigger,queueEffect, createEffect,templateCache, } from './reactive.js'
 import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
-  unMountElement,mountElement,For,States,ref
+  unMountElement,mountElement,For,States,ref,Key
 } from './power.js'
 import {propsValidator,sanitizeTemplate} from './utils.js';
 import {PawaDevTool} from './devTools.js';
@@ -301,6 +301,7 @@ const promiseCallback= (promise,main) => {
           localStorage.setItem(localStore,JSON.stringify(target))
       },50)
     }
+    // console.log(target);
       globalEffectMap.forEach((effect) => {
         
         if (effect.deps?.has(target.id)) {
@@ -418,8 +419,10 @@ if (dependencies) {
     const retry=()=>{
       asyncState.value.loading=true
         imports().then(res =>{
-
-          asyncState.value.loading=false
+          let id=setTimeout(() => {
+            asyncState.value.loading=false
+            clearTimeout(id)
+          }, 100);
         }).catch(err=>{
           asyncState.value.loading=false
           asyncState.value.error=true
@@ -431,6 +434,7 @@ if (dependencies) {
         retry()
       }
     },0)
+    console.log(loading);
     
     
     useInsert({asyncState,retry})
@@ -484,6 +488,13 @@ if (typeof result === 'function') {
       
   }
   
+  export const useComponent=()=>{
+    if (stateContext._hasRun) {
+      return
+    }
+    // console.log(stateContext);
+    
+  }
   const component =(el,appTree) => {
       if (el._running) {
         return
@@ -522,12 +533,16 @@ el._componentTerminate=() => {
     comment._terminateByComponent(endComment)
 }
 const component =el._component
+// console.log(component,el);
 
     setStateContext(component)
     // console.log(stateContext);
     stateContext._elementContext={...el._context}
     stateContext._prop={children,...el._props}
     stateContext._name=el._componentName
+    stateContext._recallEffect=()=>{
+      
+    }
 
 const compo = sanitizeTemplate(component.component(app))
 appTree.stateContext=component
@@ -578,9 +593,15 @@ Promise.resolve().then(()=>{
     el._component?._hook?.reactiveEffect.forEach((hook) => {
       const effect=hook.effect()
       
-      createEffect(() => {
-        return effect()
-      },hook.deps.value)
+      if (hook.deps?.component) {
+        createEffect(() => {
+          return effect()
+        },el) 
+      } else {
+        createEffect(() => {
+          return effect()
+        },hook.deps.value)
+      }
     })
   }
   el._MountFunctions.forEach((func) => {
@@ -617,7 +638,7 @@ if (stateContext._transportContext) {
     attrMap.set(exp.name, exp.value);
     const removeAttribute = new Set()
     removeAttribute.add('disabled')
-    el._mainAttribute[attr.name]=exp.value
+    el._mainAttribute[exp.name]=exp.value
     const evaluate = () => {
       
       try{
@@ -729,7 +750,8 @@ if (stateContext._transportContext) {
     'else-if':ElseIf,
     mount:mountElement,
     unmount:unMountElement,
-    ref:ref
+    ref:ref,
+    key:Key,
   }
   export const useRef=() => {
     return{value:null}
@@ -829,6 +851,9 @@ el._tree=appTree
       // console.log(stateContext);
       Array.from(el.children).forEach((child) => {
           render(child, context,appTree)
+          if (child) {
+            
+          }
       })
 el._callMount()
 
