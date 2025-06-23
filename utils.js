@@ -1,19 +1,31 @@
 export const splitAndAdd=(string) => {
    const strings=string.split('-')
-  const join=strings[0]+strings[1]
-  return join.toUpperCase()
+  let newString=''
+  strings.forEach(str=>{
+    newString+=str
+  })
+  return newString.toUpperCase()
 }
 export const pawaWayRemover=async (comment,endComment)=>{
+  if (!comment?.nextSibling) {
+    return
+  }
   if (comment.nextSibling === endComment) {
-
+    
     return  
- } else {
-  if (comment.nextSibling.nodeType === 8) {
-comment.nextSibling.remove()    
-     } else if (comment.nextSibling.nodeType === 1) {
-     await comment.nextSibling._remove()   
-     }
- }
+  } else {
+    if (comment?.nextSibling?.nodeType === 8) {
+      // console.log(comment)
+      if(comment.nextSibling?._controlComponent){
+        comment.nextSibling._remove()
+      }else{
+        comment.nextSibling.remove() 
+      }
+         
+    } else if (comment.nextSibling.nodeType === 1) {
+      await comment.nextSibling._remove()   
+    }
+  }
  pawaWayRemover(comment,endComment)
 }
 export const processNode = (node, itemContext) => {
