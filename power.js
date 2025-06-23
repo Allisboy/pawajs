@@ -31,6 +31,8 @@ tree.running=true
     parent.insertBefore(comment,endComment)
     const context=el._context
     let firstEnter=false
+    comment._controlComponent=true
+    let func
     const evaluate=() => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -41,19 +43,27 @@ const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, context));
-const condition=new Function(...keys,`return ${el._attr.if}`)(...values)
+if (!func) {
+    func=new Function(...keys,`return ${el._attr.if}`)
+}
+const condition=func(...values)
+if(!firstEnter){
+    for (const fn of el._terminateEffects) {
+        comment._terminateEffects.add(fn)
+    }
+}
         if (condition) {
             firstEnter=true
-            
             if (comment.nextSibling !== endComment) {
                 return
             }
-       const newElement=el._attrElement('if')       
-       if (stateContext._hasRun) {
-           stateContext._hasRun=false
-           keepContext(stateContext)
-       }
-        parent.insertBefore(newElement,endComment)
+            const newElement=el._attrElement('if')       
+            if (stateContext._hasRun) {
+                stateContext._hasRun=false
+                keepContext(stateContext)
+            }
+            parent.insertBefore(newElement,endComment)
+            
         render(newElement,el._context,tree)
         newElement._tree.pawaAttributes['if']=attr.value
         } else {
@@ -357,24 +367,25 @@ const values = keys.map((key) => resolvePath(key, el._context));
         div.appendChild(newElement)
         })
         const removeElement=[]
-        elementArray.forEach((ele) => {
-            const lookLike=div.querySelector(`[for-key='${ele.getAttribute('for-key')}']`)
+        elementArray.forEach((keyComment) => {
+            const lookLike=div.querySelector(`[for-key='${keyComment._forKey}']`)
             //console.log(lookLike?.getAttribute('for-key'))
-            if (!lookLike) {
-               const promised=ele._remove(() => {
-                insertIndex.delete(Number(ele.getAttribute('data-for-index')))
-        elementArray.delete(ele)
-    const findIndex = ele.getAttribute('data-for-index')
-               })
-               if (typeof promised=== 'function') {
-                   removeElement.push(promised)
-               }
-               
-            } else {
-                
-                const elements=div.querySelector(`[for-key='${ele.getAttribute('for-key')}']`)
-                ele.setAttribute('data-for-index',elements.getAttribute('data-for-index'))
+            console.log(keyComment._forKey,lookLike);
+            if (lookLike !== null) {
+                keyComment._index=lookLike.getAttribute('data-for-index')
             }
+            if (!lookLike) {
+                console.log(lookLike)
+               const promised=new Promise((resolve)=>{
+                keyComment._keyRemover(() => {
+                    insertIndex.delete(Number(keyComment._forKey))
+            elementArray.delete(keyComment)
+            resolve(true)
+        const findIndex = keyComment._forKey
+                   })
+               })
+                   removeElement.push(promised)
+            } 
         })
         //insertIndex.clear()
         
@@ -384,36 +395,50 @@ const values = keys.map((key) => resolvePath(key, el._context));
         
     if (array.length > elementArray.size ) {
         
-        const carrier=document.createElement('div')
+        const keyMap=new Map()
+        
         elementArray.forEach(child=>{
-            carrier.appendChild(child)
+            keyMap.set(child._index,child)
         })
-        Array.from(div.children).forEach((child,index) => {
-            const key=child.getAttribute('for-key')
-            const context=el._context
-          const itemContext = {
-          [arrayItem]: array[index],
-          [indexes]: index,
-          ...context
-        }
-        if (carrier.querySelector(`[for-key='${key}']`)) {
-            
-            
-            let oldElement=carrier.querySelector(`[for-key='${key}']`)
-            endComment.parentElement.insertBefore(oldElement,endComment)
-        } else {
+            Array.from(div.children).forEach((child,index) => {
+                const key=child.getAttribute('for-key')
+                const context=el._context
+              const itemContext = {
+              [arrayItem]: array[index],
+              [indexes]: index,
+              ...context
+            }
+            if (keyMap.get(key)) {      
+                let oldElement=keyMap.get(key)
+                const fragment=oldElement._resetForKeyElement()
+                oldElement.remove()
 
-child.setAttribute('for-unique', unique)
-//processNode(newElement, itemContext)
-//console.log(newElement)
-endComment.parentElement.insertBefore(child, endComment)
+                endComment.parentElement.insertBefore(oldElement._endComment,endComment)
+                endComment.parentElement.insertBefore(oldElement,oldElement._endComment)
+                Array.from(fragment.childNodes).forEach((com)=>{
+                endComment.parentElement.insertBefore(com,oldElement._endComment)
+                })
+            } else {
+                const keyComment=document.createComment(`key=${child.getAttribute('for-key') || index}`)
+                const endKeyComment=document.createComment('end key')
+                PawaComment.Element(keyComment)
+                keyComment._endComment=endKeyComment
+                keyComment._setKey(child.getAttribute('for-key') || index)
+                child.setAttribute('for-unique',unique)
+                child.setAttribute('data-for-index',index)
+                keyComment._index=index
+                processNode(newElement,itemContext)
+                
+                endComment.parentElement.insertBefore(endKeyComment,endComment)
+                endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
+                endKeyComment.parentElement.insertBefore(child,endKeyComment)
+                insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
+                render(child,itemContext,tree)
+                elementArray.add(keyComment)
+    
+            }
+            })
 
-insertIndex.set(index, child.getAttribute('for-key') || 'key')
-render(child, itemContext,tree)
-elementArray.add(child)
-
-        }
-        })
       
             }
          }
@@ -432,15 +457,23 @@ elementArray.add(child)
         }
         //console.log(itemContext)
         const newElement=el._attrElement('for')
+        const keyComment=document.createComment(`key=${newElement.getAttribute('for-key') || index}`)
+        const endKeyComment=document.createComment('end key')
+        PawaComment.Element(keyComment)
+        keyComment._endComment=endKeyComment
         newElement.setAttribute('for-unique',unique)
         newElement.setAttribute('data-for-index',index)
         processNode(newElement,itemContext)
-        //console.log(newElement)
-        endComment.parentElement.insertBefore(newElement,endComment)
         
+        keyComment._index=index
+        keyComment._setKey(newElement.getAttribute('for-key') || index)
+        // console.log(newElement)
+        endComment.parentElement.insertBefore(endKeyComment,endComment)
+        endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
+        endKeyComment.parentElement.insertBefore(newElement,endKeyComment)
         insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
         render(newElement,itemContext,tree)
-        elementArray.add(newElement)
+        elementArray.add(keyComment)
         })
     
     }
@@ -506,4 +539,57 @@ el.removeAttribute(attr.name)
     } catch (e) {
         throw e
     }
+}
+
+export const Key=(el,attr,stateContext,tree)=>{
+    if (el._running) {
+        return
+    }
+    el._running=true
+    let key=''
+    let newKey=''
+    let func
+    let firstEnter=true
+    const comment=document.createComment('key')
+    const endComment=document.createComment('end key')
+    PawaComment.Element(comment)
+    el.replaceWith(endComment)
+    endComment.parentElement.insertBefore(comment,endComment)
+    const evaluate=()=>{
+        try {
+            const keys = Object.keys(el._context);
+const resolvePath = (path, obj) => {
+    return path.split('.').reduce((acc, key) => acc?.[key], obj);
+};
+   const values = keys.map((key) => resolvePath(key, el._context));
+   if (func === undefined ) {
+    func=new Function(...keys,`return ${attr.value}`)
+   }
+   if (firstEnter) {
+       firstEnter=false
+       key=func(...values)
+       const newElement=el._attrElement('key')
+       comment.parentElement.insertBefore(newElement,endComment)
+       render(newElement,el._context,tree)
+    }else{
+        newKey=func(...values)    
+ if (key !== newKey && el.getAttribute('data-for-index') === null) {
+        key=newKey
+        pawaWayRemover(comment,endComment)
+        const newElement=el._attrElement('key')
+        Promise.resolve().then(res =>{
+        comment.parentElement.insertBefore(newElement,endComment)
+        render(newElement,el._context,tree)
+        })
+    }
+   }
+
+        } catch (error) {
+            __pawaDev.setError({el:el,msg:error})
+            console.error(error)
+        }
+    }
+    createEffect(()=>{ 
+        evaluate()
+    })
 }
