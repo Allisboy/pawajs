@@ -1,7 +1,7 @@
 import {createEffect} from './reactive.js';
 import {render,$state,keepContext,getCurrentContext} from './index.js';
 import {PawaComment} from './pawaElement.js';
-import {processNode,pawaWayRemover} from './utils.js';
+import {processNode,pawaWayRemover, safeEval} from './utils.js';
 export const If = (el,attr,stateContext,tree) => {
     if (el._running) {
     return
@@ -38,13 +38,9 @@ tree.running=true
             el._deleteEffects()
         }
         try {
-      const keys = Object.keys(context);
-const resolvePath = (path, obj) => {
-    return path.split('.').reduce((acc, key) => acc?.[key], obj);
-};
-const values = keys.map((key) => resolvePath(key, context));
+      
 if (!func) {
-    func=new Function(...keys,`return ${el._attr.if}`)
+    func=safeEval(el._context,el._attr.if)
 }
 const condition=func(...values)
 if(!firstEnter){
@@ -103,6 +99,7 @@ const resolvePath = (path, obj) => {
 const values = keys.map((key) => resolvePath(key, context));
     new Function('e',...keys,` ${attr.value}`)(e,...values)
         } catch (e) {
+            __pawaDev.setError({msg:error.message,stack:error.stack,directives:'event',el:el})
             console.warn(e)
         }
     })
@@ -433,7 +430,12 @@ const values = keys.map((key) => resolvePath(key, el._context));
                 endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
                 endKeyComment.parentElement.insertBefore(child,endKeyComment)
                 insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
+                if (stateContext._hasRun) {
+                    stateContext._hasRun=false
+                    keepContext(stateContext)
+                }
                 render(child,itemContext,tree)
+                
                 elementArray.add(keyComment)
     
             }
@@ -472,7 +474,12 @@ const values = keys.map((key) => resolvePath(key, el._context));
         endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
         endKeyComment.parentElement.insertBefore(newElement,endKeyComment)
         insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
+        if (stateContext._hasRun) {
+            stateContext._hasRun=false
+            keepContext(stateContext)
+        }
         render(newElement,itemContext,tree)
+        
         elementArray.add(keyComment)
         })
     
@@ -501,7 +508,8 @@ export const ref=(el,attr) => {
   new Function('el',...keys,`${attr.value}.value=el`)(el,...values)
   el.removeAttribute(attr.name)
     } catch (e) {
-      throw e
+      console.error(e)
+      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'ref'})
     }
   }
   
@@ -556,6 +564,7 @@ export const Key=(el,attr,stateContext,tree)=>{
     el.replaceWith(endComment)
     endComment.parentElement.insertBefore(comment,endComment)
     const evaluate=()=>{
+        
         try {
             const keys = Object.keys(el._context);
 const resolvePath = (path, obj) => {
@@ -567,13 +576,19 @@ const resolvePath = (path, obj) => {
    }
    if (firstEnter) {
        firstEnter=false
-       key=func(...values)
+       const keyEnter=func(...values)
+       key=keyEnter.value
        const newElement=el._attrElement('key')
        comment.parentElement.insertBefore(newElement,endComment)
+       if (stateContext._hasRun) {
+        stateContext._hasRun=false
+        keepContext(stateContext)
+    }
        render(newElement,el._context,tree)
     }else{
-        newKey=func(...values)    
- if (key !== newKey && el.getAttribute('data-for-index') === null) {
+       const newKeyEnter=func(...values)    
+        newKey=newKeyEnter.value
+ if (key !== newKey ) {
         key=newKey
         pawaWayRemover(comment,endComment)
         const newElement=el._attrElement('key')
