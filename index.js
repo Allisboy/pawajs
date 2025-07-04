@@ -715,7 +715,7 @@ comment._controlComponent=true
 
     const app = {
       children,
-      insert,
+      app:{insert,useValidateProps},
       ...slots,
       ...el._props
     }
