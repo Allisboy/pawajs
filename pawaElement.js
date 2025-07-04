@@ -1,8 +1,19 @@
 import {components,getPawaAttributes} from './index.js';
 import {splitAndAdd} from './utils.js';
 import PawaComponent from './pawaComponent.js';
+
+
 export class PawaElement {
+  
+  /**
+   * 
+   * @param {HTMLElement} element 
+   * @param {object} context 
+   */
   constructor(element,context) {
+    /**
+       * @type{PawaElement|HTMLElement}
+       */
     const div=document.createElement('div')
     div.appendChild(element.cloneNode(true))
     this._resetEffects=new Set()
@@ -11,6 +22,9 @@ export class PawaElement {
     this._out=false;
     this._terminateEffects=new Set()
     this._deleteEffects=this.terminateEffects
+    /**
+     * @type{HTMLAllCollection}
+     */
     this._slots=document.createDocumentFragment()
     this._mainAttribute={}
     this._lazy=element.tagName ==='IMPORT'?true:false
@@ -50,13 +64,14 @@ export class PawaElement {
     this._pawaElementComponentName=''
     this._reCallEffect=this.reCallEffect
     this._ElementEffects=new Map()
+    this._restProps={}
     if (this._lazy) {
       
       this._componentOrTemplate=true
     }
     
-    this.setProps()
     this.elementType()
+    this.setProps()
     this.setAttri()
     this.findPawaAttribute()
     this.isPawaElementComponent()
@@ -119,9 +134,7 @@ export class PawaElement {
         eff()
     })
   }
-  lazyImport(){
-    
-  }
+  
   getNewElementByRemovingAttr(attrName){
     const element=this._el.cloneNode(true)
     element.removeAttribute(attrName)
@@ -237,7 +250,9 @@ export class PawaElement {
       this._componentName=this._el.tagName
       this._component=new PawaComponent(components.get(tag))
       Array.from(this._el.children).forEach(slot =>{
-        if (slot.tagName === 'PROPS') {
+        
+        if (slot.tagName === 'TEMPLATE' && slot.getAttribute('prop')) {
+          
           this._slots.appendChild(slot)
         }
       })
@@ -251,7 +266,8 @@ export class PawaElement {
       // console.log(this._component);
       
       Array.from(this._el.children).forEach(slot =>{
-        if (slot.tagName === 'PROPS') {
+        if (slot.tagName === 'template' && slot.getAttribute('prop')) {
+          
           this._slots.appendChild(slot)
         }
       })
@@ -274,28 +290,43 @@ export class PawaElement {
     if (!this._context) {
       return
     }
-    this._attributes.forEach((attr) => {
-        if (attr.name.startsWith('props-')) {
-          try {
-            const propsName=attr.name.split('-')[1]
-         const keys = Object.keys(this._context);
+    if (this._componentName) {
+      this._attributes.forEach((attr) => {
+        if (attr.name.startsWith('-') || attr.name.startsWith('r-')) {
+          let name=''
+                if (attr.name.startsWith('r-')) {
+                  name=attr.name.slice(2)
+                } else {
+                  name=attr.name.slice(1)
+                }
+                this._restProps[name]={name:name,value:attr.value}    
+       }else {
+        const pawaAttribute=getPawaAttributes()
+        
+        if (pawaAttribute.has(attr.name) || attr.name.includes('-') || attr.name === 'class') {
+          return
+        }
+        try {
+          const propsName=attr.name 
+       const keys = Object.keys(this._context);
 const resolvePath = (path, obj) => {
-    return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, this._context));
 const value=new Function(...keys,`
-  try{
-  return ${attr.value}
-  }catch(error){
-  __pawaDev.setError({el:this._el,msg:'error from component props'})
-  }
-  `)(...values)
+try{
+return ${attr.value}
+}catch(error){
+__pawaDev.setError({el:this._el,msg:'error from component props'})
+}
+`)(...values)
 this._props[propsName]=value
-          } catch (error) {
-            console.error(error)
-          }
+        } catch (error) {
+          console.error(error.message)
+        }
        }
     })
+    }
   }
 }
 
