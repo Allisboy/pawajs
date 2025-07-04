@@ -3,24 +3,151 @@ import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
   unMountElement,mountElement,For,States,ref,Key
 } from './power.js'
-import {propsValidator,sanitizeTemplate} from './utils.js';
-import {PawaDevTool} from './devTools.js';
-window.__pawaDev={
-  errors:[],
-  totalEffect:0,
-  setError:({el,msg,directives}={}) => {
-      __pawaDev.errors.push({el,msg,directives})
-      console.error(msg)
+import {propsValidator,sanitizeTemplate, splitAndAdd} from './utils.js';
+import {PawaDevTool} from './devtools.js';
+import PawaComponent from './pawaComponent.js';
+/**
+ * @type{object}
+ * @property {Array<{el?:HTMLElement,msg?:string,directives?:string}} errors
+ */
+window.__pawaDev = {
+  errors: [],
+  totalEffect: 0,
+  errorState: null,
+  components: new Set(),
+  renderCount: 0,
+  reactiveUpdates: 0,
+  performance: {
+    renderTime: [],
+    effectTime: [],
+    componentTime: []
+  },
+  setError: ({el, msg, directives, stack} = {}) => {
+    if(__pawaDev.errorState) {
+      __pawaDev.errorState.value = true
+    }
+    __pawaDev.errors.push({
+      el,
+      msg, 
+      directives,
+      stack,
+      timestamp: Date.now()
+    })
+    console.error(msg)
+  },
+  logRender: (component, time) => {
+    __pawaDev.renderCount++
+    __pawaDev.performance.renderTime.push({
+      component,
+      time,
+      timestamp: Date.now()
+    })
+  },
+  logEffect: (effect, time) => {
+    __pawaDev.totalEffect++
+    __pawaDev.performance.effectTime.push({
+      effect,
+      time,
+      timestamp: Date.now() 
+    })
+  },
+  logComponent: (name, time) => {
+    __pawaDev.components.add(name)
+    __pawaDev.performance.componentTime.push({
+      name,
+      time,
+      timestamp: Date.now()
+    })
   }
 }
+const compoBeforeCall = new Set()
+const compoAfterCall=new Set()
+const renderBeforePawa=new Set()
+const renderAfterPawa=new Set()
+const renderBeforeChild=new Set()
 
+/**
+ * @typedef {{
+ * attribute?:{register:Array<string>,plugin:()=>void},
+ * component?:{
+ * beforeCall?:(stateContext:PawaComponent,app:object)=>void,
+ * afterCall?:(stateContext:PawaComponent,el:HTMLElement)=>void
+ * },
+ * renderSystem?:{
+ *  beforePawa?:(el:HTMLElement,context:object)=>void,
+ *  afterPawa?:(el:PawaElement)=>void,
+ *  beforeChildRender?:(el:PawaElement)=>void
+ * }
+ * }} PluginObject
+ */
+/**
+ * @param {Array<()=>PluginObject>} func
+ */
+const PluginSystem=(...func)=>{
+  func.forEach(fn=>{
+    /**
+     * @type {PluginObject}
+     */
+    const getPlugin=fn()
+    // attributes plugin or extension
+    if (getPlugin?.attribute) {
+      const attr=getPlugin.attribute
+      if(attr.register === null){
+        console.error('attribute register must be giving is an array of attributes to add into pawajs attribute rendering')
+      }
+      if(Array.isArray(attr.register)){
+        attr.register.forEach(attr=>{
+          if(pawaAttributes.has(attr)){
+            console.warn('attribute already exist in pawajs Attributes',attr)
+            throw Error('attribute already exist ',attr)
+          }else{
+            pawaAttributes.add(attr)
+          }
+        })
+      }else{
+        console.warn('pawa attribute plugin register must be an array')
+      }
+      if(attr.plugin === null){
+        console.error('attribute plugin function must be giving, is a function of attributes to run the plugin pawajs attribute rendering')
+      }else{
+        if(attr.plugin instanceof Function){
+          attrPlugin.add(attr.plugin)
+        }
+      }
+      
+
+    }
+    if (getPlugin?.component) {
+      if (getPlugin.component?.beforeCall && typeof getPlugin.component?.beforeCall === 'function') {
+        compoBeforeCall.add(getPlugin.component.beforeCall)
+      }
+      if (getPlugin.component?.afterCall && typeof getPlugin.component?.afterCall === 'function') {
+        compoAfterCall.add(getPlugin.component.afterCall)
+      }
+    }
+    if (getPlugin?.renderSystem) {
+      if (getPlugin.renderSystem?.beforePawa && typeof getPlugin.renderSystem?.beforePawa === 'function') {
+        renderBeforePawa.add(getPlugin.renderSystem?.beforePawa)
+      }
+      if (getPlugin.renderSystem?.afterPawa && typeof getPlugin.renderSystem?.afterPawa === 'function') {
+        renderAfterPawa.add(getPlugin.renderSystem?.afterPawa)
+      }
+      if (getPlugin.renderSystem?.beforeChildRender && typeof getPlugin.renderSystem?.beforeChildRender === 'function') {
+        renderAfterPawa.add(getPlugin.renderSystem?.beforeChildRender)
+      }
+    }
+  })
+}
 export const keepContext=(context)=>{
   stateContext=context
   formerStateContext=stateContext
   
 }
 export const components=new Map()
-const plugin=new Set()
+const attrPlugin=new Set()
+/**
+ * @type {PawaComponent}
+ */
 let stateContext=null
 export const getCurrentContext=() =>{ 
   return stateContext
@@ -39,17 +166,12 @@ export const setPawaAttributes=(...attr) => {
   })
 }
 
-setPawaAttributes('if','else-if','for','else','mount','unmount','forKey','state-','$$-','props-','event-','server-if','server-for','server-else','server-else-if','pawa-component')
+setPawaAttributes('if','else-if','for','else','mount',
+  'unmount','forKey','state-','$$-','props-','event-'
+  ,'server-if','server-for','server-else','server-else-if',
+  'pawa-component')
 export const getPawaAttributes= () => {
     return pawaAttributes
-}
-export const setPlugin=(...plugins) => {
-    plugins.forEach((arg) => {
-       if (typeof arg !== 'function') {
-         return
-       }
-       plugin.add(arg)
-    })
 }
 export const setError = ({error}) => {
     if (!stateContext) {
@@ -63,6 +185,12 @@ export const setError = ({error}) => {
     stateContext?._error.push(error)
   }
 }
+
+/**
+ * 
+ * @param  {...()=>string|null} component 
+ * Function registrar for pawajs component
+ */
 export const RegisterComponent = (...component) => {
   component.forEach((c) => {
     if (!c.name) {
@@ -74,13 +202,37 @@ export const RegisterComponent = (...component) => {
 
   });
 };
+
 const pawaElementComponent= (name,callback) => {
     if (!name.startsWith('@')) {
       throw Error("Element component must start with '@'")
     }
     components.set(name,callback)
 }
+/**
+ * PawaJs element component function for HTMLELEMENT not the main component system
+ * @param {string} name
+ * The name parameter must start with @ symbol sign 
+ * @param {()=>void} callback 
+ * The Element Component function
+ */
 export const pawaComponent=pawaElementComponent
+
+/**
+ * 
+ * @param {()=>()=>any} callback 
+ * A function that runs based on the deps and the returns are for unMounted hook 
+ * ( from Array,Number,null deps) while deps(object) are for the main reactive effect
+ * @param {Array|null|object|number} deps 
+ * Array - for state dependency.
+ * 
+ * object- for any state used inside of the callback but under the use of element or component.
+ * 
+ * Number - before mount hook.
+ * 
+ * null- for Mount hook 
+ * @returns {void}
+ */
 export const runEffect=(callback,deps) => {
   if (stateContext._hasRun) {
     return
@@ -118,6 +270,11 @@ export const runEffect=(callback,deps) => {
     }
 }
 
+/**
+ * 
+ * @param {object} props 
+ * @returns {object}
+ */
 export const useValidateProps=(props={}) => {
   if (!stateContext) {
     console.warn('must be used inside of a component')
@@ -127,6 +284,9 @@ export const useValidateProps=(props={}) => {
     return propsValidator(props,stateContext._prop,stateContext._name)
 }
 
+/**
+ * @returns {{id:string,setValue:()=>void}}
+ */
 export const setContext=() => {
   if (stateContext) {
     console.warn('setContext not meant to be in a component but outside')
@@ -154,6 +314,11 @@ if (!stateContext._transportContext) {
     
 }
 
+/**
+ * Get parent Context
+ * @param {object} context
+ * @return {object}
+ */
 export const useContext=(context) => {
     if (!stateContext) {
        console.warn('getContext must be called inside of a component')
@@ -165,24 +330,11 @@ if (stateContext?._transportContext[context.id]) {
   console.warn('this component not in the context tree')
 }
 }
-export const useAsync= (...promise) => {
-    if (stateContext._hasRun) {
-      const then=()=>true
-      return {then}
-    }
-    if (!stateContext._await) {
-      stateContext._await=[]
-      stateContext._then=null
-    }
-    promise.forEach((prom) => {
-        stateContext._await.push(prom)
-    })
-    const then= (callback) => {
-        stateContext._then=callback
-    }
-    return {then}
-}
 
+/**
+ * Get Current component context from the html
+ * @returns {object}
+ */
 export const useInnerContext=()=>{
   if (!stateContext) {
     console.warn('must be used inside component')
@@ -190,6 +342,12 @@ export const useInnerContext=()=>{
   }
   return stateContext._elementContext
 }
+
+/**
+ * Insert into the html context in component
+ * @param {object} obj 
+ * @returns void
+ */
 export const useInsert = (obj={}) => {
     if (stateContext._hasRun) {
       return
@@ -222,6 +380,10 @@ const createDeepProxy = (target, callback) => {
    const globalEffectMap = new Map();
   let globalActiveEffect = null;
 let stateIndex=0
+
+/**
+ * @param {PawaComponent} context
+ */
 export const setStateContext=(context) => {
   
   stateContext=null
@@ -237,7 +399,8 @@ export const setStateContext=(context) => {
     stateIndex=0
 }
 
-const promiseCallback= (promise,main) => {
+const promiseCallback= (func,main) => {
+  const promise=func()
     promise.then(res => {
   main.value = res
   main.failed = false
@@ -248,7 +411,16 @@ const promiseCallback= (promise,main) => {
 })
 }
 
-
+/**
+ * @param {FunctionConstructor|number|string|null} initialValue
+ * Any Function(can be return Promise or string or number) or string,number, null.
+ * @param {string|null}localStore
+ * A string for identifing or creating the localStorage item (null by defualt)
+ * @returns {{value:any,id:string,async?:boolean,failed?:boolean,retry?:()=>void}}
+ * notice the async, failed and retry works when Promised is pas into initialValue Function.
+ * 
+ * id is not meant to be touched its pawajs way of tracking state  
+ */
   export const $state=(initialValue,localStore=null)=>{
     if (stateContext === null) {
       throw Error('state can not be created outside of a component')
@@ -270,10 +442,15 @@ const promiseCallback= (promise,main) => {
         id:id
     }
     let promise
-    if (initialValue instanceof Promise) {
-     promise=initialValue
+    if (initialValue instanceof Function) {
+     const result=initialValue()
+     if (result instanceof Promise) {
+      promise=result
      states.async=true
      states.failed=false
+     } else {
+      states.value=result
+     }
     } else {
       states.value=initialValue
     }
@@ -322,7 +499,7 @@ const promiseCallback= (promise,main) => {
       stateContext._stateMap.set(stateIndex,main)
     }
     
-    if (initialValue instanceof Promise) {
+    if (promise instanceof Promise) {
   
   promise.then(res => {
     main.value=res
@@ -335,7 +512,7 @@ const promiseCallback= (promise,main) => {
   
   const asyncObject={
     retry:() => {
-      promiseCallback(promise,main)
+      promiseCallback(initialValue,main)
     }
   }
   Object.assign(main,asyncObject)
@@ -495,6 +672,14 @@ if (typeof result === 'function') {
     // console.log(stateContext);
     
   }
+
+  
+  /**
+   * 
+   * @param {PawaElement|HTMLElement} el 
+   * @param {object} appTree 
+   * @returns null
+   */
   const component =(el,appTree) => {
       if (el._running) {
         return
@@ -509,25 +694,39 @@ comment._componentElement=el
 comment._controlComponent=true
     const props={}
     const children=el._componentChildren
+    /**
+     * @type {DocumentFragment}
+     */
     const slot=el._slots
     const  mount=[]
     const  unmount=[]
     const slots={}
+    
     Array.from(slot.children).forEach(prop =>{
       if (prop.getAttribute('prop')) {
-        // console.log(prop);
-        
         slots[prop.getAttribute('prop')]=prop.innerHTML
       }else{
         console.warn('sloting props must have prop attribute')
       }
     })    
+    const insert=(arg={})=>{
+      Object.assign(stateContext.context,arg)
+}
+
     const app = {
       children,
+      insert,
       ...slots,
       ...el._props
     }
-    
+    for (const fn of compoBeforeCall) {
+      try {
+        fn(stateContext,app)
+      } catch (error) {
+        __pawaDev.setError({el:el,msg:error.message})
+        console.error(error.message)
+      }
+    } 
     const div = document.createElement('div')
 el._componentTerminate=() => {
     comment._terminateByComponent(endComment)
@@ -544,17 +743,38 @@ const component =el._component
       
     }
 
-const compo = sanitizeTemplate(component.component(app))
+let compo 
+  try {
+    compo= sanitizeTemplate(component.component(app))
+  } catch (error) {
+    __pawaDev.setError({el:el,msg:`at component ${el.tagName}, ${error.message}, ${el._template}`})
+    console.error(error.message)
+  }
 appTree.stateContext=component
 // stateContext._hasRun=true
-
+for (const fn of compoAfterCall) {
+  try {
+    fn(stateContext,el)
+  } catch (error) {
+    __pawaDev.setError({el:el,msg:error.message})
+    console.error(error.message)
+  }
+}
   if (component?._insert) {
     Object.assign(el._context,component._insert)
   }
       
-div.innerHTML = compo
-      ;
-      
+div.innerHTML = compo;
+if(Object.entries(el._restProps).length > 0){
+  const findElement=div.querySelector('[--]') || div.querySelector('[rest]')
+  if (findElement) {
+    for (const [key,value] of Object.entries(el._restProps)) {
+        findElement.setAttribute(value.name,value.value)
+        findElement.removeAttribute('--')
+        findElement.removeAttribute('rest')
+      }
+  }
+}
 if (el._component?._hook?.beforeMount) {
   el._component?._hook?.beforeMount.forEach((bfm) => {
  const result= bfm()
@@ -630,9 +850,10 @@ if (stateContext._transportContext) {
   const mainAttribute = (el, exp) => {
     const attrMap = new Map();
     // Store original attribute value
-    if (exp.name.startsWith('props-')) {
+    if (el._hasForOrIf()) {
       return
-    }else if (exp.name.startsWith('$$-')) {
+    }
+    if (el._componentName) {
       return
     }
     attrMap.set(exp.name, exp.value);
@@ -743,6 +964,87 @@ if (stateContext._transportContext) {
          
      })
   }
+  /**
+   * @param {HTMLElement} el
+   */
+  const innerHtml = (el,context) => {
+    const nodesMap = new Map();
+    if (el.getAttribute('if') || el.getAttribute('else')|| el.getAttribute('for') || el.getAttribute('else-if')) {
+      return
+    }
+    if (components.has(splitAndAdd(el.tagName))) {
+      return
+    }
+    // Get all text nodes and store original value
+    const textNodes = Array.from(el.childNodes).filter(
+      (node) => node.nodeType === Node.TEXT_NODE
+    );
+  
+    textNodes.forEach((node) => {
+      nodesMap.set(node, node.nodeValue);
+    });
+  
+    const evaluate = () => {
+      try {
+        
+        textNodes.forEach((textNode) => {
+          const originalValue = nodesMap.get(textNode);
+          const regex = /@html\((.*?)\)/g;
+          let match;
+          let hasHtml = false;
+          const fragments = [];
+  
+          let lastIndex = 0;
+  
+          while ((match = regex.exec(originalValue))) {
+            const before = originalValue.slice(lastIndex, match.index);
+            if (before) fragments.push(document.createTextNode(before));
+  
+            let expression = match[1];
+            let htmlString = '';
+            
+            
+            try {
+              // Use `Function` constructor for safe evaluation
+              const keys = Object.keys(context || {});
+              const values = keys.map((k) => resolvePath(k, context));    
+              const func = new Function(...keys, `return ${expression}`);
+              htmlString = func(...values);
+            } catch (e) {
+              htmlString = `<span style="color:red;">[Invalid Expression]</span>`;
+            }
+  
+            const temp = document.createElement('div');
+            temp.innerHTML = sanitizeTemplate(htmlString);
+            fragments.push(...temp.childNodes);
+            hasHtml = true;
+  
+            lastIndex = regex.lastIndex;
+          }
+  
+          const after = originalValue.slice(lastIndex);
+          if (after) fragments.push(document.createTextNode(after));
+  
+          if (hasHtml) {
+            const parent = textNode.parentNode;
+            parent.insertBefore(document.createDocumentFragment(), textNode);
+            fragments.forEach((frag) => parent.insertBefore(frag, textNode));
+            parent.removeChild(textNode);
+          }
+        });
+      } catch (error) {
+        console.warn(`Error while evaluating innerHTML for`, el, error);
+      }
+    };
+  
+    // Helper to resolve nested properties
+    const resolvePath = (path, obj) => {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+    };
+  
+    evaluate();
+  };
+  
   const directives={
     if:If,
     else:Else,
@@ -762,11 +1064,7 @@ export let appRecorder
     requestAnimationFrame(cb);
   });
 };
-const withFinish = (fn) =>
-  new Promise((resolve) => {
-    fn();
-    setTimeout(() => resolve(true), 0);
-  });
+
  export const render= (el,contexts={},tree) => {
    if (el.tagName === 'SCRIPT') {
      return false
@@ -774,7 +1072,20 @@ const withFinish = (fn) =>
    const context={
         ...contexts
     }
-    
+
+    if(Array.from(el.childNodes).some(node => 
+      node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@html(')
+   )) {
+     innerHtml(el,context)
+   } 
+  for (const fn of renderBeforePawa) {
+  try {
+    fn(el,context)
+  } catch (error) {
+    __pawaDev.setError({el:el,msg:error.message})
+    console.error(error.message)
+  }
+}
     PawaElement.Element(el,context)
     let appTree = {
   element: el.tagName,
@@ -804,6 +1115,14 @@ const withFinish = (fn) =>
       }
   }
 }
+for (const fn of renderAfterPawa) {
+  try {
+    fn(el)
+  } catch (error) {
+    __pawaDev.setError({el:el,msg:error.message})
+    console.error(error.message)
+  }
+}
 if (tree) {
   tree.children.push(appTree)
 } 
@@ -812,7 +1131,7 @@ el._tree=appTree
       node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@{')
    )) {
      textContentHandler(el)
-   }
+   } 
     el._attributes.forEach(attr=> {
       if (directives[attr.name]) {
         directives[attr.name](el,attr,stateContext,appTree)
@@ -828,8 +1147,8 @@ el._tree=appTree
         
       }
       else {
-        plugin.forEach((plugins) => {
-            plugins(el,attr)
+        attrPlugin.forEach((plugins) => {
+          attrPlugins(el,attr)
         })
       }
         
@@ -848,6 +1167,14 @@ el._tree=appTree
       if (el._running) {
         return true
       }
+      for (const fn of renderBeforeChild) {
+  try {
+    fn(el)
+  } catch (error) {
+    __pawaDev.setError({el:el,msg:error.message})
+    console.error(error.message)
+  }
+}
       // console.log(stateContext);
       Array.from(el.children).forEach((child) => {
           render(child, context,appTree)
@@ -872,6 +1199,7 @@ stateContext = formerStateContext
     
  }
  
+
 export const pawaStartApp=(app,callback,devTools=true) => {
   if (typeof callback !=='function') {
     throw Error('must be a component function')
@@ -885,11 +1213,9 @@ export const pawaStartApp=(app,callback,devTools=true) => {
  }
  
  const Pawa={
-   useAsync,
    useInsert,
    useContext,
    useValidateProps,
-   setPlugin,
    setPawaAttributes,
    setContext,
    $state,
