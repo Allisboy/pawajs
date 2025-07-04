@@ -24,7 +24,7 @@ window.__pawaDev = {
     componentTime: []
   },
   setError: ({el, msg, directives, stack} = {}) => {
-    if(__pawaDev !== true) return
+    if(__pawaDev.tool !== true) return
       if(__pawaDev.errorState) {
       __pawaDev.errorState.value = true
     }
@@ -199,7 +199,7 @@ export const RegisterComponent = (...component) => {
       console.warn('Component registration failed: Component must have a name property');
       return;
     }
-    if (components.has(c.name.toUpperCase)) return;
+    if (components.has(c.name.toUpperCase()) return;
     components.set(c.name.toUpperCase(), c);
 
   });
