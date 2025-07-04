@@ -11,6 +11,7 @@ import PawaComponent from './pawaComponent.js';
  * @property {Array<{el?:HTMLElement,msg?:string,directives?:string}} errors
  */
 window.__pawaDev = {
+  tool:false,
   errors: [],
   totalEffect: 0,
   errorState: null,
@@ -23,7 +24,8 @@ window.__pawaDev = {
     componentTime: []
   },
   setError: ({el, msg, directives, stack} = {}) => {
-    if(__pawaDev.errorState) {
+    if(__pawaDev !== true) return
+      if(__pawaDev.errorState) {
       __pawaDev.errorState.value = true
     }
     __pawaDev.errors.push({
