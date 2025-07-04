@@ -14,7 +14,7 @@ const app = document.getElementById('app')
 pawaStartApp(app,() => {
   
   const count=$state(0)
- 
+ // add satate or variable into the render
   useInsert({count})
 })
 ```
@@ -58,8 +58,7 @@ RegisterComponent(Counter)
 ```
 
 # you can use template element for better ui
-#it won't work for SSR with template 
-* meant to use in html not component 
+# template can also be used to control flow 
 ```html
     <template>
         <h1>@{count.value}</h1>
@@ -86,7 +85,7 @@ RegisterComponent(Counter)
 
 ```html
     <div state-array="['name','age','occupation']">
-        <div for="value,index in array.value">
+        <div for="value,index in array.value" for-key="{{value}}">
             <span>{{value}}</span>
         </div>
     </div>
