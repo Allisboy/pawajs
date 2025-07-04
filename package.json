@@ -1,6 +1,6 @@
 {
   "name": "pawajs",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "pawajs library for easy building web ui, enhancing html element ",
   "main": "index.js",
   "scripts": {
