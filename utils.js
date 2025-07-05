@@ -110,6 +110,35 @@ export const propsValidator=(obj={},propsAttri,name)=>{
   }
   return {...propsAttri}
 }
+export const safeEval=(context,expression)=>{
+  const keys = Object.keys(context);
+  const resolvePath = (path, obj) => {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  };
+  
+      return new Function(...keys,`
+        try{
+        return ${expression}
+        }catch(error){
+        console.error(error)
+        __pawaDev.setError({msg:error.message,stack:error.stack})
+        }
+        `)
+  
+}
+/**
+ * 
+ * @param {object} context 
+ * @returns {Array}
+ */
+export const getEvalValues=(context)=>{
+  const keys = Object.keys(context);
+  const resolvePath = (path, obj) => {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  };
+  const values = keys.map((key) => resolvePath(key, context))
+  return values
+}
 export const sanitizeTemplate = (temp) => {
   if (typeof temp !== 'string') return '';
   return temp.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, '');
