@@ -25,7 +25,7 @@ window.__pawaDev = {
   },
   setError: ({el, msg, directives, stack} = {}) => {
     if(__pawaDev.tool !== true) return
-      if(__pawaDev.errorState) {
+    if(__pawaDev.errorState) {
       __pawaDev.errorState.value = true
     }
     __pawaDev.errors.push({
@@ -70,7 +70,7 @@ const renderBeforeChild=new Set()
 
 /**
  * @typedef {{
- * attribute?:{register:Array<string>,plugin:()=>void},
+ * attribute?:{register:Array<string>,plugin:(el:HTMLElement,attr:object)=>void},
  * component?:{
  * beforeCall?:(stateContext:PawaComponent,app:object)=>void,
  * afterCall?:(stateContext:PawaComponent,el:HTMLElement)=>void
@@ -85,7 +85,7 @@ const renderBeforeChild=new Set()
 /**
  * @param {Array<()=>PluginObject>} func
  */
-const PluginSystem=(...func)=>{
+export const PluginSystem=(...func)=>{
   func.forEach(fn=>{
     /**
      * @type {PluginObject}
@@ -199,7 +199,7 @@ export const RegisterComponent = (...component) => {
       console.warn('Component registration failed: Component must have a name property');
       return;
     }
-    if (components.has(c.name.toUpperCase()) return;
+    if (components.has(c.name.toUpperCase())) return;
     components.set(c.name.toUpperCase(), c);
 
   });
@@ -580,7 +580,7 @@ if (dependencies) {
     };
   };
   
- export const LazyLoading=({imports,children,loading,error})=>{
+ export const LazyLoading=({imports,children,name,loading,error})=>{
  const {}= useValidateProps({
     imports:{
       type:Function,
@@ -589,6 +589,10 @@ if (dependencies) {
     loading:{
       type:String,
       default:'<div>Loading...</div>'
+    },
+    name:{
+      type:String,
+      strict:true
     }
   })
     const asyncState=$state({
@@ -598,6 +602,8 @@ if (dependencies) {
     const retry=()=>{
       asyncState.value.loading=true
         imports().then(res =>{
+          RegisterComponent(res[name]);
+          
           let id=setTimeout(() => {
             asyncState.value.loading=false
             clearTimeout(id)
@@ -613,9 +619,7 @@ if (dependencies) {
         retry()
       }
     },0)
-    console.log(loading);
-    
-    
+     
     useInsert({asyncState,retry})
     return`
     <template>
@@ -1150,7 +1154,7 @@ el._tree=appTree
       }
       else {
         attrPlugin.forEach((plugins) => {
-          attrPlugins(el,attr)
+          plugins(el,attr)
         })
       }
         
