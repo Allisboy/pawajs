@@ -1,7 +1,7 @@
 import {createEffect} from './reactive.js';
 import {render,$state,keepContext,getCurrentContext} from './index.js';
 import {PawaComment} from './pawaElement.js';
-import {processNode,pawaWayRemover, safeEval} from './utils.js';
+import {processNode,pawaWayRemover, safeEval, getEvalValues} from './utils.js';
 export const If = (el,attr,stateContext,tree) => {
     if (el._running) {
     return
@@ -42,6 +42,7 @@ tree.running=true
 if (!func) {
     func=safeEval(el._context,el._attr.if)
 }
+const values=getEvalValues(el._context)
 const condition=func(...values)
 if(!firstEnter){
     for (const fn of el._terminateEffects) {
