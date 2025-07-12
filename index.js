@@ -1,7 +1,7 @@
 import { track, trigger,queueEffect, createEffect,templateCache, } from './reactive.js'
 import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
-  unMountElement,mountElement,For,States,ref,Key
+  unMountElement,mountElement,For,States,ref,Key,documentEvent
 } from './power.js'
 import {propsValidator,sanitizeTemplate, splitAndAdd} from './utils.js';
 import {PawaDevTool} from './devtools.js';
@@ -67,10 +67,17 @@ const compoAfterCall=new Set()
 const renderBeforePawa=new Set()
 const renderAfterPawa=new Set()
 const renderBeforeChild=new Set()
+const startsWithSet=new Set()
+const fullNamePlugin=new Set()
+const externalPlugin={}
+let pawaAttributes=new Set()
 
 /**
+ * @typedef {{startsWith:string,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
+ */
+/**
  * @typedef {{
- * attribute?:{register:Array<string>,plugin:(el:HTMLElement,attr:object)=>void},
+ * attribute?:{register:Array<AttriPlugin>},
  * component?:{
  * beforeCall?:(stateContext:PawaComponent,app:object)=>void,
  * afterCall?:(stateContext:PawaComponent,el:HTMLElement)=>void
@@ -90,33 +97,39 @@ export const PluginSystem=(...func)=>{
     /**
      * @type {PluginObject}
      */
+    if (typeof fn !== 'function') {
+      console.warn('plugin must be a function that returns the plugin objects')
+      return
+    }
     const getPlugin=fn()
     // attributes plugin or extension
+    
     if (getPlugin?.attribute) {
-      const attr=getPlugin.attribute
-      if(attr.register === null){
-        console.error('attribute register must be giving is an array of attributes to add into pawajs attribute rendering')
-      }
-      if(Array.isArray(attr.register)){
-        attr.register.forEach(attr=>{
-          if(pawaAttributes.has(attr)){
-            console.warn('attribute already exist in pawajs Attributes',attr)
-            throw Error('attribute already exist ',attr)
-          }else{
-            pawaAttributes.add(attr)
-          }
-        })
-      }else{
-        console.warn('pawa attribute plugin register must be an array')
-      }
-      if(attr.plugin === null){
-        console.error('attribute plugin function must be giving, is a function of attributes to run the plugin pawajs attribute rendering')
-      }else{
-        if(attr.plugin instanceof Function){
-          attrPlugin.add(attr.plugin)
+      getPlugin.attribute.register.forEach(attrPlugins =>{
+        if (attrPlugins.fullName && attrPlugins.startsWith) {
+          console.warn('Either Plugins FullName or startsWith. you are not required to use to of does plugin registers at this same entry.')
+          return
         }
-      }
+        if (attrPlugins?.fullName) {
+          if (pawaAttributes.has(attrPlugins.fullName) ) {
+            console.warn(`attribute plugin already exist ${attrPlugins.fullName}`)
+            return
+          }
+          pawaAttributes.add(attrPlugins.fullName)
+        fullNamePlugin.add(attrPlugins.fullName)
+        externalPlugin[attrPlugins.fullName]=attrPlugins?.plugin
+        }else if (attrPlugins?.startsWith) {
+          if (pawaAttributes.has(attrPlugins.startsWith) ) {
+          console.warn(`attribute plugin already exist ${attrPlugins.startsWith}`)
+          return
+        }
+        pawaAttributes.add(attrPlugins.startsWith)
+        startsWithSet.add(attrPlugins.startsWith)
+        externalPlugin[attrPlugins.startsWith]=attrPlugins?.plugin
+        }
+      })
       
+
 
     }
     if (getPlugin?.component) {
@@ -154,7 +167,7 @@ let stateContext=null
 export const getCurrentContext=() =>{ 
   return stateContext
 }
-let pawaAttributes=new Set()
+
 let formerStateContext=null
 let pawaContext={}
 
@@ -743,7 +756,7 @@ const component =el._component
     setStateContext(component)
     // console.log(stateContext);
     stateContext._elementContext={...el._context}
-    stateContext._prop={children,...el._props}
+    stateContext._prop={children,...el._props,...slots}
     stateContext._name=el._componentName
     stateContext._recallEffect=()=>{
       
@@ -758,19 +771,11 @@ let compo
   }
 appTree.stateContext=component
 // stateContext._hasRun=true
-for (const fn of compoAfterCall) {
-  try {
-    fn(stateContext,el)
-  } catch (error) {
-    __pawaDev.setError({el:el,msg:error.message})
-    console.error(error.message)
-  }
-}
-  if (component?._insert) {
-    Object.assign(el._context,component._insert)
-  }
-      
 div.innerHTML = compo;
+if (component?._insert) {
+  Object.assign(el._context,component._insert)
+}
+      
 if(Object.entries(el._restProps).length > 0){
   const findElement=div.querySelector('[--]') || div.querySelector('[rest]')
   if (findElement) {
@@ -779,8 +784,16 @@ if(Object.entries(el._restProps).length > 0){
         findElement.removeAttribute('--')
         findElement.removeAttribute('rest')
       }
+    }
   }
-}
+  for (const fn of compoAfterCall) {
+    try {
+      fn(stateContext,div?.firstElementChild)
+    } catch (error) {
+      __pawaDev.setError({el:el,msg:error.message})
+      console.error(error.message)
+    }
+  }
 if (el._component?._hook?.beforeMount) {
   el._component?._hook?.beforeMount.forEach((bfm) => {
  const result= bfm()
@@ -1102,7 +1115,7 @@ export let appRecorder
   thisSame:tree?.running||false,
   component:[],
   isComponent: el._componentOrTemplate || el._isElementComponent || false,
-  stateContext:null,
+  stateContext:stateContext||null,
   children:[],
   matched:false,
   new:false,
@@ -1138,6 +1151,18 @@ el._tree=appTree
    )) {
      textContentHandler(el)
    } 
+   let startAttribute=false
+      const startObject={}
+      //get startsWith plugin
+      startsWithSet.forEach( starts=>{
+       
+       el._attributes.forEach(attr =>{
+         if(attr.name.startsWith('on:')){
+           startAttribute=true
+           startObject[attr.name]=starts
+         }
+       })
+      })
     el._attributes.forEach(attr=> {
       if (directives[attr.name]) {
         directives[attr.name](el,attr,stateContext,appTree)
@@ -1147,16 +1172,42 @@ el._tree=appTree
         mainAttribute(el,attr)
       } else if (attr.name.startsWith('state-')) {
         States(el,attr,getCurrentContext())
-      } else if (attr.name === 'pawa-component') {
+      } else if (attr.name.startsWith('out-')) {
+        documentEvent(el,attr)
+      }
+      else if (attr.name === 'pawa-component') {
         
         elementComponent(el,appTree)
         
+      }else if(fullNamePlugin.has(attr.name)) {
+        if(externalPlugin[attr.name]){
+          const plugin= externalPlugin[attr.name]
+          try{
+            if (typeof plugin !== 'function') {
+              console.warn(`${attr.name} plugin must be a function`)
+              return
+            }
+            plugin(el,attr)
+          }catch(error){
+            console.warn(error.message,error.stack)
+          }
+        }
+      }else if(startAttribute){
+        const name=startObject[attr.name]
+        if(externalPlugin[name]){
+          const plugin= externalPlugin[name]
+          try{
+            if (typeof plugin !== 'function') {
+              console.warn(`${name} plugin must be a function`)
+              return
+            }
+            plugin(el,attr)
+          }catch(error){
+            console.warn(error.message,error.stack)
+          }
+        }
       }
-      else {
-        attrPlugin.forEach((plugins) => {
-          plugins(el,attr)
-        })
-      }
+      
         
     })
     if (el._componentName) {

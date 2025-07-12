@@ -1,5 +1,5 @@
 import {components,getPawaAttributes} from './index.js';
-import {splitAndAdd} from './utils.js';
+import {splitAndAdd,replaceTemplateOperators} from './utils.js';
 import PawaComponent from './pawaComponent.js';
 
 
@@ -313,22 +313,24 @@ const resolvePath = (path, obj) => {
   return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, this._context));
+
 const value=new Function(...keys,`
 try{
-return ${attr.value}
+return ${replaceTemplateOperators(attr.value)}
 }catch(error){
-__pawaDev.setError({el:this._el,msg:'error from component props'})
+console.error(error.message,error.stack)
 }
 `)(...values)
 this._props[propsName]=value
         } catch (error) {
-          console.error(error.message)
+          console.error(error.message,error.stack)
         }
        }
     })
     }
   }
 }
+
 
 export class PawaComment {
   constructor(element) {

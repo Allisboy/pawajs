@@ -69,8 +69,9 @@ if(!firstEnter){
             }
         }
         
-        } catch (e) {
-            throw e
+        } catch (error) {
+            console.error(error.message,error.stack)
+            __pawaDev.setError({el:el,msg:error.message,stack:error.stack,directives:'if'})
         }
         
         
@@ -90,18 +91,25 @@ export const event=(el,attr,stateContext) => {
     const eventType=splitName[1]
     el.removeAttribute(attr.name)
     const context=el._context
-    
-    el.addEventListener(eventType,(e) => {
-        try {
-      const keys = Object.keys(context);
+    const keys = Object.keys(context);
 const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, context));
-    new Function('e',...keys,` ${attr.value}`)(e,...values)
+ const func = new Function('e',...keys,` 
+    try{
+    ${attr.value}
+    }catch(error){
+    console.error(error.message,error.stack)
+    __pawaDev.setError({el:e.target,msg:error.message,stack:error.stack,directives:'on-event'})
+    }
+    `)
+    el.addEventListener(eventType,(e) => {
+        try {
+            func(e,...values)
         } catch (e) {
             __pawaDev.setError({msg:error.message,stack:error.stack,directives:'event',el:el})
-            console.warn(e)
+            console.warn(e.message,e.stack)
         }
     })
     
@@ -125,6 +133,7 @@ export const Else = (el,attr,stateContext,tree) => {
     parent.insertBefore(comment,endComment)
     const context=el._context
     let firstEnter=false
+    let func
     const evaluate=() => {
         if (endComment.parentElement === null) {
     el._deleteEffects()
@@ -135,7 +144,10 @@ const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, context));
-const condition=new Function(...keys,`return ${elseValue}`)(...values)
+if (!func) {
+        func=new Function(...keys,`return ${elseValue}`)
+    }
+   const condition=func(...values)
         if (condition) {
             
             if (firstEnter) {
@@ -158,7 +170,8 @@ render(newElement, context,tree)
         }
         
         } catch (e) {
-            throw e
+            console.error(e.message,e.stack)
+            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'else-if'})
         }
         
         
@@ -247,7 +260,8 @@ render(newElement, context,tree)
         }
         
         } catch (e) {
-            throw e
+             console.error(e.message,e.stack)
+            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'else-if'})
         }
         
         
@@ -279,7 +293,8 @@ const func=() => {
 el._MountFunctions.push(func)
 el.removeAttribute(attr.name)
     } catch (e) {
-        throw e
+         console.error(e.message,e.stack)
+         __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'mount'})
     }
 }
 
@@ -301,7 +316,8 @@ const func=() => {
 el._unMountFunctions.push(func)
 el.removeAttribute(attr.name)
     } catch (e) {
-        throw e
+       console.error(e.message,e.stack)
+        __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'unMount'})
     }
 }
 
@@ -487,7 +503,8 @@ const values = keys.map((key) => resolvePath(key, el._context));
     }
     firstEnter=false
        } catch (e) {
-           throw e
+            console.error(e.message,e.stack)
+            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'for'})
        }
     }
     createEffect(() => {
@@ -506,10 +523,21 @@ export const ref=(el,attr) => {
   };
   
   const values = keys.map((key) => resolvePath(key, el._context))
-  new Function('el',...keys,`${attr.value}.value=el`)(el,...values)
+  new Function('el',...keys,`
+    try{
+        if(Array.isArray(${attr.value}.value)){
+        ${attr.value}.value.push(el)
+    }else{
+    ${attr.value}.value=el
+    }
+    }catch(e){
+    console.error(e.message,e.error)
+    __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'ref'})
+    }
+    `)(el,...values)
   el.removeAttribute(attr.name)
     } catch (e) {
-      console.error(e)
+      console.error(e.message,e.stack)
       __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'ref'})
     }
   }
@@ -546,7 +574,8 @@ if (stateContext._innerState) {
 }
 el.removeAttribute(attr.name)
     } catch (e) {
-        throw e
+        console.error(e.message,e.stack)
+      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'state'})
     }
 }
 
@@ -601,11 +630,50 @@ const resolvePath = (path, obj) => {
    }
 
         } catch (error) {
-            __pawaDev.setError({el:el,msg:error})
-            console.error(error)
+            console.error(e.message,e.stack)
+      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'key'})
         }
     }
     createEffect(()=>{ 
         evaluate()
     })
+}
+
+export const documentEvent = (el,attr) => {
+  if (el._running) {
+    return
+  }
+  if (attr.name.split('-')[2]) {
+    return
+  }
+    const eventName=attr.name.split('-')[1]
+    const keys = Object.keys(el._context);
+const resolvePath = (path, obj) => {
+    return path.split('.').reduce((acc, key) => acc?.[key], obj);
+};
+const func=new Function('e',...keys,`
+    try{
+    ${attr.value}
+    }catch(error){
+    console.error(error.message,error.stack)
+    __pawaDev({msg:error.message,stack:error.stack,directives:'out-event'})
+    }`)
+const values = keys.map((key) => resolvePath(key, el._context));
+    const functions=(e) => {
+        try {
+          
+        func(e,...values)
+        } catch (error) {
+          console.error(error.message,error.stack)
+    __pawaDev({el:el,msg:error.message,stack:error.stack,directives:'out-event'})
+        }
+    }
+    el.removeAttribute(attr.name)
+    setTimeout(() => {
+      document.addEventListener(eventName,functions)
+    },1000)
+    
+    const unMount=()=>document.removeEventListener(eventName,functions);
+    el._setUnMount(unMount)
+    
 }
