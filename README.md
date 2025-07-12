@@ -94,5 +94,5 @@ RegisterComponent(Counter)
 # for cdn
 
 ``` html
-<script src="https://cdn.jsdelivr.net/npm/pawajs@1.0.5/cdn/index.js" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/pawajs@1.0.6/cdn/index.js" type="module"></script>
 ```
