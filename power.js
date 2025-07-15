@@ -543,7 +543,7 @@ export const ref=(el,attr) => {
   }
   
 
-export const States=(el,attr,stateContext) => {
+export const States=(el,attr) => {
     
     if (el._running) {
         return
@@ -560,18 +560,6 @@ const val=new Function(...keys,`return ${attr.value}`)(...values)
 
 el._context[name]=$state(val)
 
-if (stateContext._innerState) {
-    if (stateContext._innerState.has(el)) {
-        stateContext._innerState.get(el).push(el._context[name])
-    } else {
-        
-        stateContext._innerState.set(el._template,[[
-            name,
-            el._context[name]]])
-            // console.log(stateContext)
-       // console.log(stateContext._innerState.get(el._template),el._template)
-    }
-}
 el.removeAttribute(attr.name)
     } catch (e) {
         console.error(e.message,e.stack)
