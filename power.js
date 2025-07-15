@@ -556,9 +556,15 @@ const resolvePath = (path, obj) => {
     return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, el._context));
-const val=new Function(...keys,`return ${attr.value}`)(...values)
-
-el._context[name]=$state(val)
+const val=new Function('$state',...keys,`
+    try{
+    return $state(${attr.value})
+    }catch(error){
+    console.log(error.message,error.stack)
+    }
+    `)($state,...values)
+el._context[name]=null
+el._context[name]=val
 
 el.removeAttribute(attr.name)
     } catch (e) {

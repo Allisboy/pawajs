@@ -446,15 +446,11 @@ const promiseCallback= (func,main) => {
     }
     stateIndex++
     //console.log(stateContext)
-    if (stateContext?._stateMap?.get(stateIndex)) {
-      const sta=stateContext._stateMap.get(stateIndex)
-    
-      return sta
-    } else {
-      const id=crypto.randomUUID()
-      const states={
-        value:null,
-        id:id
+   
+    const id=crypto.randomUUID()
+    const states={
+      value:null,
+      id:id
     }
     let promise
     if (initialValue instanceof Function) {
@@ -538,7 +534,7 @@ const promiseCallback= (func,main) => {
     
     }
     
-  }
+  
   const watchCallbacks = new Map();
   
   
