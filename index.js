@@ -3,7 +3,7 @@ import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
   unMountElement,mountElement,For,States,ref,Key,documentEvent
 } from './power.js'
-import {propsValidator,sanitizeTemplate, splitAndAdd} from './utils.js';
+import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd} from './utils.js';
 import {PawaDevTool} from './devtools.js';
 import PawaComponent from './pawaComponent.js';
 /**
@@ -296,7 +296,7 @@ export const useValidateProps=(props={}) => {
     return
   }
     
-    return propsValidator(props,stateContext._prop,stateContext._name)
+    return propsValidator(props,stateContext._prop,stateContext._name,stateContext._template)
 }
 
 /**
@@ -409,11 +409,31 @@ export const setStateContext=(context) => {
     }
     stateContext._transportContext={}
     stateContext._formerContext=formerStateContext
+    stateContext._reactiveProps={}
+    stateContext._template=''
     stateContext._transportContext=formerStateContext?._transportContext
     formerStateContext=stateContext
     stateIndex=0
 }
 
+export const useProps=()=>{
+  if (stateContext === null) {
+      throw Error('state can not be created outside of a component')
+    }
+    if (stateContext._hasRun) {
+      return 
+    }
+    const reactive=stateContext._reactiveProps
+    const run=(callback,name)=>{
+      if (reactive[name]) {
+        callback()
+      }
+    }
+  return {
+    ...stateContext._reactiveProps,
+    run
+  }
+}
 const promiseCallback= (func,main) => {
   const promise=func()
     promise.then(res => {
@@ -716,7 +736,7 @@ comment._controlComponent=true
     const  mount=[]
     const  unmount=[]
     const slots={}
-    
+    const reactiveProps={}
     Array.from(slot.children).forEach(prop =>{
       if (prop.getAttribute('prop')) {
         slots[prop.getAttribute('prop')]=prop.innerHTML
@@ -727,7 +747,12 @@ comment._controlComponent=true
     const insert=(arg={})=>{
       Object.assign(stateContext.context,arg)
 }
-
+    if (el._reactiveProps) {
+      for (const [key,value] of Object.entries(el._reactiveProps)) {
+        el._props[key]=value()
+        reactiveProps[key]=value
+      }
+    }
     const app = {
       children,
       app:{insert,useValidateProps},
@@ -754,6 +779,8 @@ const component =el._component
     stateContext._elementContext={...el._context}
     stateContext._prop={children,...el._props,...slots}
     stateContext._name=el._componentName
+    stateContext._reactiveProps=reactiveProps
+    stateContext._template=el._template
     stateContext._recallEffect=()=>{
       
     }
@@ -762,8 +789,11 @@ let compo
   try {
     compo= sanitizeTemplate(component.component(app))
   } catch (error) {
-    __pawaDev.setError({el:el,msg:`at component ${el.tagName}, ${error.message}, ${el._template}`})
-    console.error(error.message)
+    setPawaDevError({
+      message:`error from ${el._componentName} component  ${error.message}`,
+      error:error,
+      template:el._template
+    })
   }
 appTree.stateContext=component
 // stateContext._hasRun=true
@@ -905,6 +935,11 @@ if (stateContext._transportContext) {
       
       }catch(error){
         console.warn(`failed at attribute ${exp.name}`)
+        setPawaDevError({
+          message:`error at attribute ${error.message}`,
+          error:error,
+          template:el._template
+        })
       }
     };
     // createEffect
@@ -952,7 +987,12 @@ if (stateContext._transportContext) {
           
         });
       } catch (error) {
-        console.warn(`error at ${el} textcontent`)
+        // console.warn(`error at ${el} textcontent`)
+        setPawaDevError({
+          message:`error at TextContent ${error.message}`,
+          error:error,
+          template:el._template
+        })
       }
     };
   
@@ -1049,6 +1089,11 @@ if (stateContext._transportContext) {
         });
       } catch (error) {
         console.warn(`Error while evaluating innerHTML for`, el, error);
+        setPawaDevError({
+          message:`Error while evaluating innerHTML ${error.message}`,
+          error:error,
+          template:el._template
+        })
       }
     };
   
@@ -1257,6 +1302,7 @@ export const pawaStartApp=(app,callback,devTools=true) => {
   if (typeof callback !=='function') {
     throw Error('must be a component function')
   }
+  __pawaDev.tool=devTools
      pawaElementComponent('@pawa-app',callback)
      app?.setAttribute('pawa-component','@pawa-app')
      appRecorder=app

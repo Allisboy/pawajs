@@ -82,8 +82,12 @@ return new Function(...keys,`return ${exp}`)(...values)
     }
 }
 
+export const setPawaDevError=({message,error,template})=>{
+  console.error(message,error.message,error.stack)
+   __pawaDev.setError({msg:message ,stack:error.stack,el:template})
+}
 
-export const propsValidator=(obj={},propsAttri,name)=>{
+export const propsValidator=(obj={},propsAttri,name,template)=>{
   let newObj={}
   
   const jsTypes=['Array','String','Number']
@@ -98,6 +102,14 @@ export const propsValidator=(obj={},propsAttri,name)=>{
       }else{
         if (value.strict) {
           console.warn(`undefined props ${key} at ${name} component props is needed`)
+          setPawaDevError({
+            message:`undefined props ${key} at ${name} component props is needed`,
+            error:{
+              message:`This props "${key.toUpperCase()}" is needed`,
+              stack:`at ${name}`
+            },
+            template:template
+          })
           throw new Error(value.err+ ' the props is needed' || `props undefined ${name}`);
         }else{
           if (value.default || value.default === 0) {
@@ -110,8 +122,9 @@ export const propsValidator=(obj={},propsAttri,name)=>{
   }
   return {...propsAttri}
 }
-export const safeEval=(context,expression)=>{
-  const keys = Object.keys(context);
+export const safeEval=(context,expression,el)=>{
+  try{
+    const keys = Object.keys(context);
   const resolvePath = (path, obj) => {
       return path.split('.').reduce((acc, key) => acc?.[key], obj);
   };
@@ -125,6 +138,13 @@ export const safeEval=(context,expression)=>{
         }
         `)
   
+  }catch(error){
+    setPawaDevError({
+          message:`Error from IF directive ${error.message}`,
+          error:error,
+          template:el._template
+        })
+  }
 }
 /**
  * 

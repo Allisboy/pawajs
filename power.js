@@ -1,7 +1,7 @@
 import {createEffect} from './reactive.js';
 import {render,$state,keepContext,getCurrentContext} from './index.js';
 import {PawaComment} from './pawaElement.js';
-import {processNode,pawaWayRemover, safeEval, getEvalValues} from './utils.js';
+import {processNode,pawaWayRemover, safeEval, getEvalValues,setPawaDevError} from './utils.js';
 export const If = (el,attr,stateContext,tree) => {
     if (el._running) {
     return
@@ -40,7 +40,7 @@ tree.running=true
         try {
       
 if (!func) {
-    func=safeEval(el._context,el._attr.if)
+    func=safeEval(el._context,el._attr.if,el)
 }
 const values=getEvalValues(el._context)
 const condition=func(...values)
@@ -70,8 +70,11 @@ if(!firstEnter){
         }
         
         } catch (error) {
-            console.error(error.message,error.stack)
-            __pawaDev.setError({el:el,msg:error.message,stack:error.stack,directives:'if'})
+            setPawaDevError({
+              message:`Error from IF directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
         }
         
         
@@ -107,9 +110,12 @@ const values = keys.map((key) => resolvePath(key, context));
     el.addEventListener(eventType,(e) => {
         try {
             func(e,...values)
-        } catch (e) {
-            __pawaDev.setError({msg:error.message,stack:error.stack,directives:'event',el:el})
-            console.warn(e.message,e.stack)
+        } catch (error) {
+            setPawaDevError({
+              message:`Error from on-${eventType} directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
         }
     })
     
@@ -169,9 +175,12 @@ if (stateContext._hasRun) {
 render(newElement, context,tree)
         }
         
-        } catch (e) {
-            console.error(e.message,e.stack)
-            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'else-if'})
+        } catch (error) {
+            setPawaDevError({
+              message:`Error from Else directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
         }
         
         
@@ -188,11 +197,11 @@ export const ElseIf = (el,attr,stateContext,tree) => {
     }
     el._running=true
     const exp = new WeakMap()
-    const elsePrimitive = {key:elseIfValue}
-    const ifPrimitive={key:ifValue}
     el._tree.thisSame=true
     const elseIfValue=el.getAttribute('else-if')
+    const elsePrimitive = {key:elseIfValue}
     const ifValue=el.getAttribute('data-if')
+    const ifPrimitive={key:ifValue}
     const nextSibling=el.nextElementSibling
     if(nextSibling.getAttribute('else') === '' || nextSibling.getAttribute('else-if')){
         nextSibling.setAttribute('data-if',elseIfValue)
@@ -259,9 +268,12 @@ render(newElement, context,tree)
 }
         }
         
-        } catch (e) {
-             console.error(e.message,e.stack)
-            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'else-if'})
+        } catch (error) {
+             setPawaDevError({
+              message:`Error from Else-IF directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
         }
         
         
@@ -292,9 +304,12 @@ const func=() => {
 
 el._MountFunctions.push(func)
 el.removeAttribute(attr.name)
-    } catch (e) {
-         console.error(e.message,e.stack)
-         __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'mount'})
+    } catch (error) {
+         setPawaDevError({
+              message:`Error from Mount directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
     }
 }
 
@@ -315,9 +330,12 @@ const func=() => {
 }
 el._unMountFunctions.push(func)
 el.removeAttribute(attr.name)
-    } catch (e) {
-       console.error(e.message,e.stack)
-        __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'unMount'})
+    } catch (error) {
+       setPawaDevError({
+              message:`Error from UnMount directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
     }
 }
 
@@ -502,9 +520,12 @@ const values = keys.map((key) => resolvePath(key, el._context));
     
     }
     firstEnter=false
-       } catch (e) {
-            console.error(e.message,e.stack)
-            __pawaDev.setError({el:el,msg:e.message,stack:e.stack,directives:'for'})
+       } catch (error) {
+            setPawaDevError({
+              message:`Error from For directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
        }
     }
     createEffect(() => {
@@ -536,9 +557,12 @@ export const ref=(el,attr) => {
     }
     `)(el,...values)
   el.removeAttribute(attr.name)
-    } catch (e) {
-      console.error(e.message,e.stack)
-      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'ref'})
+    } catch (error) {
+      setPawaDevError({
+      message:`Error from Ref directive ${error.message}`,
+      error:error,
+      template:el._template
+    })
     }
   }
   
@@ -567,9 +591,12 @@ el._context[name]=null
 el._context[name]=val
 
 el.removeAttribute(attr.name)
-    } catch (e) {
-        console.error(e.message,e.stack)
-      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'state'})
+    } catch (error) {
+        setPawaDevError({
+          message:`Error from State directive ${error.message}`,
+          error:error,
+          template:el._template
+        })
     }
 }
 
@@ -624,8 +651,11 @@ const resolvePath = (path, obj) => {
    }
 
         } catch (error) {
-            console.error(e.message,e.stack)
-      __pawaDev.setError({msg:e.message,stack:e.stack,el:el,directives:'key'})
+            setPawaDevError({
+              message:`Error from Key directive ${error.message}`,
+              error:error,
+              template:el._template
+            })
         }
     }
     createEffect(()=>{ 
@@ -658,8 +688,11 @@ const values = keys.map((key) => resolvePath(key, el._context));
           
         func(e,...values)
         } catch (error) {
-          console.error(error.message,error.stack)
-    __pawaDev({el:el,msg:error.message,stack:error.stack,directives:'out-event'})
+          setPawaDevError({
+          message:`Error from out-${eventName} directive ${error.message}`,
+          error:error,
+          template:el._template
+        })
         }
     }
     el.removeAttribute(attr.name)

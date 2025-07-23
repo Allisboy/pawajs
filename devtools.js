@@ -14,7 +14,7 @@ const DevTabs=({tabs,activeKey})=>{
     
     useInsert({tabs})
     return`
-        <div state-activekey='0' >
+        <div state-activekey='0' style="margin:10px;" >
             <div style="display:flex; flex-direction:column; gap:3px;">
             <div>
               ${title}
@@ -30,8 +30,22 @@ const DevTabs=({tabs,activeKey})=>{
 }
 const DevError=()=>{
   return `
-    <div>
+    <div style="background-color:red;">
       <h1>Error</h1>
+
+      <div for="error in errors.value" for-key="error.timestamp" style="color:white;">
+        <div>@{error?.msg}</div>
+        <div>
+          <p>@{error?.stack}</p>
+        </div>
+        <div style="background-color:white; padding:12px; color:red;">
+          <h2>Element:</h2>
+          <p style="font-size:30px;">@{error?.el?error.el:''}</p>
+        </div>
+        <div>
+          <span>@{error?.directive?error.directive:''}</span>
+        </div>
+      </div>
     </div>
   `
 }
@@ -55,6 +69,10 @@ export const PawaDevTool = () => {
   const toggleOpen = () => {
     open.value = !open.value
   }
+    const setDevTools=()=>{
+      errors.value=__pawaDev.errors
+        totalEffect.value=__pawaDev.totalEffect
+      }
   runEffect(() => {
       
         errors.value=__pawaDev.errors
@@ -62,7 +80,7 @@ export const PawaDevTool = () => {
       
   },0)
 
-  useInsert({ open, toggleOpen,errors,totalEffect })
+  useInsert({ open, toggleOpen,errors,totalEffect,setDevTools })
 
   return `
   <template>
@@ -101,7 +119,7 @@ export const PawaDevTool = () => {
         backdrop-filter:blur(4px);
         z-index:999;
         padding:20px;
-      '>
+      ' mount="setDevTools()">
       
       <div 
         style='
