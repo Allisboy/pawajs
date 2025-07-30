@@ -24,7 +24,13 @@ tree.running=true
     nextSibling.setAttribute('data-if', el._attr.if)
 }
     }
-    
+     el._tree.primaryAttribute="if"
+     el._deCompositionElement=true
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     el.replaceWith(endComment)
     PawaComment.Element(comment)
     comment._setCoveringElement(el)
@@ -139,7 +145,14 @@ export const Else = (el,attr,stateContext,tree) => {
     parent.insertBefore(comment,endComment)
     const context=el._context
     let firstEnter=false
-    let func
+    let func;
+    el._tree.primaryAttribute="else"
+     el._deCompositionElement=true
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     const evaluate=() => {
         if (endComment.parentElement === null) {
     el._deleteEffects()
@@ -203,8 +216,11 @@ export const ElseIf = (el,attr,stateContext,tree) => {
     const ifValue=el.getAttribute('data-if')
     const ifPrimitive={key:ifValue}
     const nextSibling=el.nextElementSibling
-    if(nextSibling.getAttribute('else') === '' || nextSibling.getAttribute('else-if')){
+    el._tree.primaryAttribute="else-if"
+    if(nextSibling !== null){
+        if(nextSibling.getAttribute('else') === '' || nextSibling.getAttribute('else-if')){
         nextSibling.setAttribute('data-if',elseIfValue)
+    }
     }
     el.removeAttribute('data-if')
     const comment=document.createComment(`else if (${elseIfValue})`)
@@ -215,7 +231,13 @@ export const ElseIf = (el,attr,stateContext,tree) => {
     PawaComment.Element(comment)
     parent.insertBefore(comment,endComment)
     const context=el._context
-    let firstEnter=false
+    let firstEnter=false;
+     el._deCompositionElement=true
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     const evaluate=() => {
         if (endComment.parentElement === null) {
     el._deleteEffects()
@@ -362,6 +384,13 @@ export const For=(el,attr,stateContext,tree)=>{
     const unique=crypto.randomUUID()
     const insertIndex=new Map()
     const elementArray=new Set()
+    el._tree.primaryAttribute="for"
+     el._deCompositionElement=true
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     const evaluate=() => {
         if (endComment.parentElement === null) {
     el._deleteEffects()
@@ -401,13 +430,10 @@ const values = keys.map((key) => resolvePath(key, el._context));
         const removeElement=[]
         elementArray.forEach((keyComment) => {
             const lookLike=div.querySelector(`[for-key='${keyComment._forKey}']`)
-            //console.log(lookLike?.getAttribute('for-key'))
-            console.log(keyComment._forKey,lookLike);
             if (lookLike !== null) {
                 keyComment._index=lookLike.getAttribute('data-for-index')
             }
             if (!lookLike) {
-                console.log(lookLike)
                const promised=new Promise((resolve)=>{
                 keyComment._keyRemover(() => {
                     insertIndex.delete(Number(keyComment._forKey))
@@ -612,8 +638,15 @@ export const Key=(el,attr,stateContext,tree)=>{
     const comment=document.createComment('key')
     const endComment=document.createComment('end key')
     PawaComment.Element(comment)
+    el._tree.primaryAttribute="key"
     el.replaceWith(endComment)
     endComment.parentElement.insertBefore(comment,endComment)
+     el._deCompositionElement=true
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     const evaluate=()=>{
         
         try {

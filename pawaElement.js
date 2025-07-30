@@ -1,4 +1,4 @@
-import {components,getPawaAttributes} from './index.js';
+import {components,escapePawaAttribute,getPawaAttributes} from './index.js';
 import {splitAndAdd,replaceTemplateOperators,setPawaDevError} from './utils.js';
 import PawaComponent from './pawaComponent.js';
 
@@ -18,7 +18,7 @@ export class PawaElement {
     div.appendChild(element.cloneNode(true))
     this._resetEffects=new Set()
     this._context=context;
-    this._el=element
+    this._el=element 
     this._out=false;
     this._terminateEffects=new Set()
     this._deleteEffects=this.terminateEffects
@@ -64,7 +64,10 @@ export class PawaElement {
     this._pawaElementComponentName=''
     this._reCallEffect=this.reCallEffect
     this._ElementEffects=new Map()
+    this._deCompositionElement=false
     this._restProps={}
+    this._kill=null
+    this._isKill=false
     /**
      * @type{object}
      */
@@ -98,7 +101,9 @@ export class PawaElement {
     Array.from(this._el.attributes).forEach((attr) => {
       const pawaAttribute=getPawaAttributes()
         if (pawaAttribute.has(attr.name)) {
-          this._pawaAttribute[attr.name]=attr.value
+          if (!escapePawaAttribute.has(attr.name)) {
+            this._pawaAttribute[attr.name]=attr.value
+          }
         } else  {
           pawaAttribute.forEach((value) => {
               if (attr.name.startsWith(value)) {
@@ -182,7 +187,10 @@ export class PawaElement {
     if (this._tree) {
       this._tree.remove()
     }
-    
+    if (typeof this._kill === 'function' && this._isKill && this._deCompositionElement) {
+      this._kill()
+      return
+    }
     if (typeof this._exitAnimation === 'function') {
       
      try {
@@ -252,6 +260,7 @@ export class PawaElement {
       
       this._componentOrTemplate=true
       this._componentName=this._el.tagName
+      this._deCompositionElement=true
       this._component=new PawaComponent(components.get(tag))
       Array.from(this._el.children).forEach(slot =>{
         
@@ -265,6 +274,7 @@ export class PawaElement {
     } else if (components.has(splitAndAdd(tag))) {
       this._elementType='component'
       this._componentOrTemplate=true
+      this._deCompositionElement=true
       this._componentName=splitAndAdd(tag)
       this._component=new PawaComponent(components.get(splitAndAdd(tag)))
       // console.log(this._component);
@@ -279,6 +289,7 @@ export class PawaElement {
       
     } else if(tag ==='TEMPLATE'){
       this._elementType='template'
+      this._deCompositionElement=true
       this._componentOrTemplate=true
     } else {
       this._elementType='element'

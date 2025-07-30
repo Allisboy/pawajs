@@ -3,7 +3,7 @@ import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
   unMountElement,mountElement,For,States,ref,Key,documentEvent
 } from './power.js'
-import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd} from './utils.js';
+import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover } from './utils.js';
 import {PawaDevTool} from './devtools.js';
 import PawaComponent from './pawaComponent.js';
 /**
@@ -71,9 +71,10 @@ const startsWithSet=new Set()
 const fullNamePlugin=new Set()
 const externalPlugin={}
 let pawaAttributes=new Set()
+export const escapePawaAttribute=new Set()
 
 /**
- * @typedef {{startsWith:string,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
+ * @typedef {{startsWith:string,escape:boolean,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
  */
 /**
  * @typedef {{
@@ -115,6 +116,9 @@ export const PluginSystem=(...func)=>{
             console.warn(`attribute plugin already exist ${attrPlugins.fullName}`)
             return
           }
+          if (attrPlugins?.escape) {
+                      escapePawaAttribute.add(attrPlugins.fullName)
+          }
           pawaAttributes.add(attrPlugins.fullName)
         fullNamePlugin.add(attrPlugins.fullName)
         externalPlugin[attrPlugins.fullName]=attrPlugins?.plugin
@@ -123,6 +127,9 @@ export const PluginSystem=(...func)=>{
           console.warn(`attribute plugin already exist ${attrPlugins.startsWith}`)
           return
         }
+        if (attrPlugins?.escape) {
+            escapePawaAttribute.add(attrPlugins.startsWith)
+          }
         pawaAttributes.add(attrPlugins.startsWith)
         startsWithSet.add(attrPlugins.startsWith)
         externalPlugin[attrPlugins.startsWith]=attrPlugins?.plugin
@@ -206,15 +213,31 @@ export const setError = ({error}) => {
  * @param  {...()=>string|null} component 
  * Function registrar for pawajs component
  */
-export const RegisterComponent = (...component) => {
-  component.forEach((c) => {
-    if (!c.name) {
-      console.warn('Component registration failed: Component must have a name property');
-      return;
+export const RegisterComponent = (...args) => {
+  // Handle new signature from plugin: RegisterComponent('Name1', Func1, 'Name2', Func2, ...)
+  if (typeof args[0] === 'string') {
+    for (let i = 0; i < args.length; i += 2) {
+      const name = args[i];
+      const component = args[i + 1];
+      if (typeof name === 'string' && typeof component === 'function') {
+        if (components.has(name.toUpperCase())) continue;
+        components.set(name.toUpperCase(), component);
+      } else {
+        console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string, function).');
+        break;
+      }
     }
-    if (components.has(c.name.toUpperCase())) return;
-    components.set(c.name.toUpperCase(), c);
+    return;
+  }
 
+  // Handle old signature for dev mode: RegisterComponent(ComponentFunc1, ComponentFunc2, ...)
+  args.forEach((component) => {
+    if (typeof component === 'function' && component.name) {
+      if (components.has(component.name.toUpperCase())) return;
+      components.set(component.name.toUpperCase(), component);
+    } else {
+       console.warn('Component registration failed: Component must be a named function. This might happen in production builds without the pawajs Vite plugin.');
+    }
   });
 };
 
@@ -744,6 +767,12 @@ comment._controlComponent=true
         console.warn('sloting props must have prop attribute')
       }
     })    
+    //kill the template element
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
     const insert=(arg={})=>{
       Object.assign(stateContext.context,arg)
 }
@@ -956,6 +985,7 @@ if (stateContext._transportContext) {
     if (el._running) {
       return
     }
+    el._tree.textContextAvoid=true
     const nodesMap = new Map();
     
     // Get all text nodes and store their original content
@@ -1010,6 +1040,12 @@ if (stateContext._transportContext) {
      const comment=document.createComment('<template>')
      const endComment=document.createComment('</template>')
      el.replaceWith(endComment)
+     //kill the template element
+     el._isKill=true
+    el._kill=()=>{
+       pawaWayRemover(comment,endComment)
+      comment.remove(),endComment.remove();
+     }
      endComment.parentElement.insertBefore(comment,endComment)
      
      Array.from(el.content.children).forEach((child) => {
@@ -1030,6 +1066,7 @@ if (stateContext._transportContext) {
     if (components.has(splitAndAdd(el.tagName))) {
       return
     }
+    el.setAttribute('inner-html','true')
     // Get all text nodes and store original value
     const textNodes = Array.from(el.childNodes).filter(
       (node) => node.nodeType === Node.TEXT_NODE
@@ -1150,7 +1187,7 @@ export let appRecorder
     let appTree = {
   element: el.tagName,
   pawaAttributes: el._pawaAttribute,
-  parent:tree,
+  parent:el.getAttribute('inner-html')?{}:tree,
   serverKey:el.getAttribute('server-key'),
   running:false,
   thisSame:tree?.running||false,
@@ -1160,7 +1197,10 @@ export let appRecorder
   children:[],
   matched:false,
   new:false,
+  textContextAvoid:false,
+  primaryAttribute:"",
   preRenderInto:false,
+  alreadyMatched:false,
   matchedNode:null,
   componentName:el._componentName,
   originalChildren:[],
@@ -1168,7 +1208,6 @@ export let appRecorder
   id:crypto.randomUUID(),
   el:el,
   remove:()=>{
-    
       const index=tree.children.findIndex(item => item.id === appTree.id)
       if (index !== -1) {
         tree.children.splice(index,1)
@@ -1183,7 +1222,7 @@ for (const fn of renderAfterPawa) {
     console.error(error.message)
   }
 }
-if (tree) {
+if (tree && !el.getAttribute('inner-html')) {
   tree.children.push(appTree)
 } 
 el._tree=appTree

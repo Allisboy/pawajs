@@ -42,8 +42,6 @@ function scheduleRenderWithTimeBudget() {
     rafScheduled = false;
     // If more effects remain, schedule next frame
     if (scheduled.size > 0) {
-      console.log('passed on');
-      
       scheduleInProgress=false
       requestAnimationFrame(scheduleRenderWithTimeBudget)
 
@@ -175,5 +173,3 @@ export const trigger = (target, key) => {
     }
   }
 };
-
-
