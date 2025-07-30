@@ -10,8 +10,7 @@ import PawaComponent from './pawaComponent.js';
  * @type{object}
  * @property {Array<{el?:HTMLElement,msg?:string,directives?:string}} errors
  */
-//for bundling minifier
-let minify=false
+
 window.__pawaDev = {
   tool:false,
   errors: [],
@@ -635,68 +634,70 @@ if (dependencies) {
   };
   
  export const LazyLoading=({imports,children,name,loading,error})=>{
- const {}= useValidateProps({
-    imports:{
-      type:Function,
-      strict:true,
-    },
-    loading:{
-      type:String,
-      default:'<div>Loading...</div>'
-    },
-    name:{
-      type:String,
-      strict:true
-    }
-  })
-    const asyncState=$state({
-      loading:false,
-      error:false,
-    })
-    const retry=()=>{
-      asyncState.value.loading=true
-        imports().then(res =>{
-          if (minify) {
-            const miniName=`M_${name}`
-            const minifyiedName=stringToUniqueNumber(miniName)
-            RegisterComponent(name,res[minifyiedName])
-          }else{
-            RegisterComponent(res[name]);
-          }
-          
-          let id=setTimeout(() => {
-            asyncState.value.loading=false
-            clearTimeout(id)
-          }, 100);
-        }).catch(err=>{
-          asyncState.value.loading=false
-          asyncState.value.error=true
-          
-        })
-    }
-    runEffect(()=>{
-      if (typeof imports === 'function') {
-        retry()
-      }
-    },0)
-     
-    useInsert({asyncState,retry})
-    return`
-    <template>
-      <template if='asyncState.value.loading'>
-        ${loading}
-      </template>
-      <template if='asyncState.value.error'>
-        ${error}
-      </template>
-      <template if='!asyncState.value.loading'>
-       ${children}
-      </template>
-    </template>
-    `
-  }
-  RegisterComponent(LazyLoading)
-  
+  const {}= useValidateProps({
+     imports:{
+       type:Function,
+       strict:true,
+     },
+     loading:{
+       type:String,
+       default:'<div>Loading...</div>'
+     },
+     name:{
+       type:String,
+       strict:true
+     }
+   })
+     const asyncState=$state({
+       loading:false,
+       error:false,
+     })
+     const retry=()=>{
+       asyncState.value.loading = true;
+       imports().then(res => {
+         // The component is expected to be the default export from the module.
+         // We also check for a named export matching `name` for development convenience.
+         const componentToRegister = res.default || res[name];
+ 
+         if (componentToRegister) {
+           // RegisterComponent expects ('Name', function), which is what we provide.
+           RegisterComponent(name, componentToRegister);
+           asyncState.value.loading = false;
+         } else {
+           console.error(`Lazy-loaded component for tag <${name}> not found in module. Make sure it's the default export or a named export matching the 'name' prop.`);
+           __pawaDev.setError({ msg: `Lazy-loaded component for tag <${name}> not found. Make sure it's the default export.` });
+           asyncState.value.loading = false;
+           asyncState.value.error = true;
+         }
+       }).catch(err => {
+         console.error(`Error loading component for tag <${name}>:`, err);
+         __pawaDev.setError({ msg: `Error loading component for tag <${name}>: ${err.message}`, stack: err.stack });
+         asyncState.value.loading = false;
+         asyncState.value.error = true;
+       });
+     }
+     runEffect(()=>{
+       if (typeof imports === 'function') {
+         retry()
+       }
+     },0)
+      
+     useInsert({asyncState,retry})
+     return`
+     <template>
+       <template if='asyncState.value.loading'>
+         ${loading}
+       </template>
+       <template if='asyncState.value.error'>
+         ${error}
+       </template>
+       <template if='!asyncState.value.loading'>
+        ${children}
+       </template>
+     </template>
+     `
+   }
+   
   const elementComponent= (el,appTree) => {
       if (el._running) {
         return
@@ -1347,9 +1348,8 @@ stateContext = formerStateContext
   * 
   * @param {{devTools:boolean,minifier:boolean}} tools 
   */
-export const pawaTools=(tools={devTools:true,minifier:false})=>{
+export const pawaTools=(tools={devTools:true})=>{
   __pawaDev.tool=devTools
-  minify=minifier
 }
 export const pawaStartApp=(app,callback) => {
   if (typeof callback !=='function') {
