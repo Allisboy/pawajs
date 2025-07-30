@@ -3,13 +3,15 @@ import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
   unMountElement,mountElement,For,States,ref,Key,documentEvent
 } from './power.js'
-import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover } from './utils.js';
+import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover,stringToUniqueNumber } from './utils.js';
 import {PawaDevTool} from './devtools.js';
 import PawaComponent from './pawaComponent.js';
 /**
  * @type{object}
  * @property {Array<{el?:HTMLElement,msg?:string,directives?:string}} errors
  */
+//for bundling minifier
+let minify=false
 window.__pawaDev = {
   tool:false,
   errors: [],
@@ -654,7 +656,13 @@ if (dependencies) {
     const retry=()=>{
       asyncState.value.loading=true
         imports().then(res =>{
-          RegisterComponent(res[name]);
+          if (minify) {
+            const miniName=`M_${name}`
+            const minifyiedName=stringToUniqueNumber(miniName)
+            RegisterComponent(name,res[minifyiedName])
+          }else{
+            RegisterComponent(res[name]);
+          }
           
           let id=setTimeout(() => {
             asyncState.value.loading=false
