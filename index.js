@@ -1343,23 +1343,28 @@ stateContext = formerStateContext
   }
     
  }
- 
-
-export const pawaStartApp=(app,callback,devTools=true) => {
+ /**
+  * 
+  * @param {{devTools:boolean,minifier:boolean}} tools 
+  */
+export const pawaTools=(tools={devTools:true,minifier:false})=>{
+  __pawaDev.tool=devTools
+  minify=minifier
+}
+export const pawaStartApp=(app,callback) => {
   if (typeof callback !=='function') {
     throw Error('must be a component function')
   }
-  __pawaDev.tool=devTools
      pawaElementComponent('@pawa-app',callback)
      app?.setAttribute('pawa-component','@pawa-app')
      appRecorder=app
-  RegisterComponent(PawaDevTool)
   render(app)
   
  }
  
  const Pawa={
    useInsert,
+   pawaTools,
    useContext,
    useValidateProps,
    setPawaAttributes,
