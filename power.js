@@ -68,7 +68,6 @@ if(!firstEnter){
             parent.insertBefore(newElement,endComment)
             
         render(newElement,el._context,tree)
-        newElement._tree.pawaAttributes['if']=attr.value
         } else {
             if (firstEnter) {
                 pawaWayRemover(comment,endComment)

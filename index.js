@@ -1181,7 +1181,7 @@ export let appRecorder
 
     if(Array.from(el.childNodes).some(node => 
       node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@html(')
-   )) {
+   ) && !el.getAttribute('avoid-pawa')) {
      innerHtml(el,context)
    } 
   for (const fn of renderBeforePawa) {
@@ -1237,73 +1237,76 @@ if (tree && !el.getAttribute('inner-html')) {
 el._tree=appTree
     if(Array.from(el.childNodes).some(node => 
       node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@{')
-   )) {
+   ) && !el._avoidPawaRender) {
      textContentHandler(el)
    } 
    let startAttribute=false
       const startObject={}
       //get startsWith plugin
-      startsWithSet.forEach( starts=>{
-       
-       el._attributes.forEach(attr =>{
-         if(attr.name.startsWith('on:')){
-           startAttribute=true
-           startObject[attr.name]=starts
-         }
-       })
+      if(!el._avoidPawaRender){
+
+        startsWithSet.forEach( starts=>{
+         
+         el._attributes.forEach(attr =>{
+           if(attr.name.startsWith('on:')){
+             startAttribute=true
+             startObject[attr.name]=starts
+           }
+         })
+        })
+      el._attributes.forEach(attr=> {
+        if (directives[attr.name]) {
+          directives[attr.name](el,attr,stateContext,appTree)
+        } else if (attr.name.startsWith('on-')) {
+          event(el,attr,stateContext)
+        } else if (attr.value.includes('@{')) {
+          mainAttribute(el,attr)
+        } else if (attr.name.startsWith('state-')) {
+          States(el,attr,getCurrentContext())
+        } else if (attr.name.startsWith('out-')) {
+          documentEvent(el,attr)
+        }
+        else if (attr.name === 'pawa-component') {
+          
+          elementComponent(el,appTree)
+          
+        }else if(fullNamePlugin.has(attr.name)) {
+          if(externalPlugin[attr.name]){
+            const plugin= externalPlugin[attr.name]
+            try{
+              if (typeof plugin !== 'function') {
+                console.warn(`${attr.name} plugin must be a function`)
+                return
+              }
+              plugin(el,attr)
+            }catch(error){
+              console.warn(error.message,error.stack)
+            }
+          }
+        }else if(startAttribute){
+          const name=startObject[attr.name]
+          if(externalPlugin[name]){
+            const plugin= externalPlugin[name]
+            try{
+              if (typeof plugin !== 'function') {
+                console.warn(`${name} plugin must be a function`)
+                return
+              }
+              plugin(el,attr)
+            }catch(error){
+              console.warn(error.message,error.stack)
+            }
+          }
+        }
+        
+          
       })
-    el._attributes.forEach(attr=> {
-      if (directives[attr.name]) {
-        directives[attr.name](el,attr,stateContext,appTree)
-      } else if (attr.name.startsWith('on-')) {
-        event(el,attr,stateContext)
-      } else if (attr.value.includes('@{')) {
-        mainAttribute(el,attr)
-      } else if (attr.name.startsWith('state-')) {
-        States(el,attr,getCurrentContext())
-      } else if (attr.name.startsWith('out-')) {
-        documentEvent(el,attr)
       }
-      else if (attr.name === 'pawa-component') {
-        
-        elementComponent(el,appTree)
-        
-      }else if(fullNamePlugin.has(attr.name)) {
-        if(externalPlugin[attr.name]){
-          const plugin= externalPlugin[attr.name]
-          try{
-            if (typeof plugin !== 'function') {
-              console.warn(`${attr.name} plugin must be a function`)
-              return
-            }
-            plugin(el,attr)
-          }catch(error){
-            console.warn(error.message,error.stack)
-          }
-        }
-      }else if(startAttribute){
-        const name=startObject[attr.name]
-        if(externalPlugin[name]){
-          const plugin= externalPlugin[name]
-          try{
-            if (typeof plugin !== 'function') {
-              console.warn(`${name} plugin must be a function`)
-              return
-            }
-            plugin(el,attr)
-          }catch(error){
-            console.warn(error.message,error.stack)
-          }
-        }
-      }
-      
-        
-    })
-    if (el._componentName) {
+    if (el._componentName && !el._avoidPawaRender) {
     component(el,appTree)
       return
     }
-    if (el._elementType === 'template') {
+    if (el._elementType === 'template' && !el._avoidPawaRender) {
       template(el,appTree)
       return true
     }

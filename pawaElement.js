@@ -18,6 +18,7 @@ export class PawaElement {
     div.appendChild(element.cloneNode(true))
     this._resetEffects=new Set()
     this._context=context;
+    this._avoidPawaRender=element.getAttribute('pawa-avoid')?true:false;
     this._el=element 
     this._out=false;
     this._terminateEffects=new Set()
@@ -76,13 +77,20 @@ export class PawaElement {
       
       this._componentOrTemplate=true
     }
+    if(this._avoidPawaRender){
+      element.removeAttribute('pawa-avoid')
+      Array.from(element.children).forEach((child) => {
+        if (child.nodeType === 1) {
+          child.setAttribute('pawa-avoid','')
+        }
+      })
+    }
     
     this.elementType()
     this.setProps()
     this.setAttri()
     this.findPawaAttribute()
     this.isPawaElementComponent()
-  
   }
   
   static Element(element,context){
@@ -169,20 +177,7 @@ export class PawaElement {
   }
   effectsCache(){
     return this._el
-  }
- async renderInView(){
-  this._cacheSetUp=true
-    const observer=new IntersectionObserver(([entry])=>{
-      if(entry.isIntersecting){
-        this._isView=true
-      }else{
-        this._isView=false
-      }
-  },{threshold:0.5})
-
-  this._MountFunctions.push(()=>{observer.disconnect()})
-  }
-  
+  } 
   async remove(callback){
     if (this._tree) {
       this._tree.remove()
@@ -253,6 +248,9 @@ export class PawaElement {
     }
   }
   elementType(){
+    if (this._avoidPawaRender) {
+      return
+    }
     const tag = this._el.tagName
    try {
     if (components.has(tag)) {
@@ -302,6 +300,9 @@ export class PawaElement {
    }
   }
   setProps(){
+    if (this._avoidPawaRender) {
+      return
+    }
     if (!this._context) {
       return
     }
