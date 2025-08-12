@@ -6,6 +6,7 @@ import {If,event,Else,ElseIf,
 import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover,stringToUniqueNumber } from './utils.js';
 import {PawaDevTool} from './devtools.js';
 import PawaComponent from './pawaComponent.js';
+import {resume} from './script.js'
 /**
  * @type{object}
  * @property {Array<{el?:HTMLElement,msg?:string,directives?:string}} errors
@@ -191,8 +192,8 @@ export const setPawaAttributes=(...attr) => {
 
 setPawaAttributes('if','else-if','for','else','mount',
   'unmount','forKey','state-','$$-','props-','event-'
-  ,'server-if','server-for','server-else','server-else-if',
-  'pawa-component')
+  ,'s-if','s-for','s-else','s-else-if','s-data-','script','script-error',
+  'script-success','script-retry','pawa-component')
 export const getPawaAttributes= () => {
     return pawaAttributes
 }
@@ -256,7 +257,6 @@ const pawaElementComponent= (name,callback) => {
  * The Element Component function
  */
 export const pawaComponent=pawaElementComponent
-
 /**
  * 
  * @param {()=>()=>any} callback 
@@ -295,10 +295,8 @@ export const runEffect=(callback,deps) => {
       if (deps === undefined || deps === null) {
         stateContext._hook.isMount.push(callback)
       } else if (typeof deps === 'object' && !Array.isArray(deps)) {
-      
         stateContext._hook.reactiveEffect.push({deps:deps,effect:callback})
-      } else if (Array.isArray(deps)) {
-        
+      } else if (Array.isArray(deps)) {     
         stateContext._hook.effect.push({
           deps:deps,
           effect:callback
@@ -318,8 +316,7 @@ export const useValidateProps=(props={}) => {
   if (!stateContext) {
     console.warn('must be used inside of a component')
     return
-  }
-    
+  } 
     return propsValidator(props,stateContext._prop,stateContext._name,stateContext._template)
 }
 
@@ -327,12 +324,7 @@ export const useValidateProps=(props={}) => {
  * @returns {{id:string,setValue:()=>void}}
  */
 export const setContext=() => {
-  if (stateContext) {
-    console.warn('setContext not meant to be in a component but outside')
-    return null
-  }
     const id = crypto.randomUUID()
-    
     const setValue= (val={}) => {
       if (stateContext._hasRun) {
         return
@@ -417,9 +409,6 @@ const createDeepProxy = (target, callback) => {
     });
   };
    const globalEffectMap = new Map();
-  let globalActiveEffect = null;
-let stateIndex=0
-
 /**
  * @param {PawaComponent} context
  */
@@ -428,7 +417,6 @@ export const setStateContext=(context) => {
   stateContext=null
     stateContext=context
     if (stateContext._hasRun) {
-      stateIndex=0
       return
     }
     stateContext._transportContext={}
@@ -437,7 +425,6 @@ export const setStateContext=(context) => {
     stateContext._template=''
     stateContext._transportContext=formerStateContext?._transportContext
     formerStateContext=stateContext
-    stateIndex=0
 }
 
 export const useProps=()=>{
@@ -481,16 +468,9 @@ const promiseCallback= (func,main) => {
  * id is not meant to be touched its pawajs way of tracking state  
  */
   export const $state=(initialValue,localStore=null)=>{
-    if (stateContext === null) {
-      throw Error('state can not be created outside of a component')
-    }
-    if (stateContext._hasRun) {
-      
+    if (stateContext?._hasRun) { 
       return {value:null,id:'2626262'}
-    }
-    stateIndex++
-    //console.log(stateContext)
-   
+    }   
     const id=crypto.randomUUID()
     const states={
       value:null,
@@ -545,15 +525,7 @@ const promiseCallback= (func,main) => {
           effect.cleanup = effect.callback();
         }
       });
-    });
-    if (stateContext._stateMap) {
-      stateContext._stateMap.set(stateIndex,main)
-      
-    } else {
-      stateContext._stateMap=new Map()
-      stateContext._stateMap.set(stateIndex,main)
-    }
-    
+    });  
     if (promise instanceof Promise) {
   
   promise.then(res => {
@@ -1160,6 +1132,7 @@ if (stateContext._transportContext) {
     unmount:unMountElement,
     ref:ref,
     key:Key,
+    script:resume
   }
   export const useRef=() => {
     return{value:null}
@@ -1181,7 +1154,8 @@ export let appRecorder
 
     if(Array.from(el.childNodes).some(node => 
       node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@html(')
-   ) && !el.getAttribute('avoid-pawa')) {
+   ) && !el.hasAttribute('pawa-avoid') ) {
+    if(el._scriptFetching)return
      innerHtml(el,context)
    } 
   for (const fn of renderBeforePawa) {
@@ -1267,7 +1241,7 @@ el._tree=appTree
           documentEvent(el,attr)
         }
         else if (attr.name === 'pawa-component') {
-          
+          if(el._scriptFetching) return
           elementComponent(el,appTree)
           
         }else if(fullNamePlugin.has(attr.name)) {
@@ -1303,17 +1277,19 @@ el._tree=appTree
       })
       }
     if (el._componentName && !el._avoidPawaRender) {
+      if(el._scriptFetching) return
     component(el,appTree)
       return
     }
     if (el._elementType === 'template' && !el._avoidPawaRender) {
+      if(el._scriptFetching)return
       template(el,appTree)
       return true
     }
     
     if (el._out === false || el._running === false || el._componentOrTemplate !== true ) {
       
-      if (el._running) {
+      if (el._running || el._scriptFecthing) {
         return true
       }
       for (const fn of renderBeforeChild) {

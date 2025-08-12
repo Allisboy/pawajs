@@ -46,14 +46,11 @@ RegisterComponent(Counter)
 # html way to create a counter
 
 ```html
-   <div id="app">
+<div id="app">
   <div state-count="0">
-    
       <h1>@{count.value}</h1>
-   
     <button on-click="count.value++">count ++</button>
-  </div>
-   
+  </div>   
 </div>
 ```
 
@@ -81,7 +78,7 @@ RegisterComponent(Counter)
         login
     </div>
 ```
-# pawa js For Attributes
+# pawajs For Attributes
 
 ```html
     <div state-array="['name','age','occupation']">
@@ -94,5 +91,6 @@ RegisterComponent(Counter)
 # for cdn
 
 ``` html
-<script src="https://cdn.jsdelivr.net/npm/pawajs@1.0.7/cdn/index.js" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/pawajs@latestVersion/cdn/index.js" type="module"></script>
 ```
+# MIT LICENSE

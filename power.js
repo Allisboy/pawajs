@@ -68,6 +68,7 @@ if(!firstEnter){
             parent.insertBefore(newElement,endComment)
             
         render(newElement,el._context,tree)
+        stateContext._hasRun=true
         } else {
             if (firstEnter) {
                 pawaWayRemover(comment,endComment)
@@ -185,6 +186,7 @@ if (stateContext._hasRun) {
     keepContext(stateContext)
 }
 render(newElement, context,tree)
+stateContext._hasRun=true
         }
         
         } catch (error) {
@@ -273,6 +275,7 @@ if (stateContext._hasRun) {
     keepContext(stateContext)
 }
 render(newElement, context,tree)
+stateContext._hasRun=true
         } else {
             if (firstEnter) {
     while (comment.nextSibling) {
@@ -495,7 +498,7 @@ const values = keys.map((key) => resolvePath(key, el._context));
                     keepContext(stateContext)
                 }
                 render(child,itemContext,tree)
-                
+                stateContext._hasRun=true 
                 elementArray.add(keyComment)
     
             }
@@ -539,7 +542,7 @@ const values = keys.map((key) => resolvePath(key, el._context));
             keepContext(stateContext)
         }
         render(newElement,itemContext,tree)
-        
+        stateContext._hasRun=true
         elementArray.add(keyComment)
         })
     
@@ -668,6 +671,7 @@ const resolvePath = (path, obj) => {
         keepContext(stateContext)
     }
        render(newElement,el._context,tree)
+       stateContext._hasRun=true
     }else{
        const newKeyEnter=func(...values)    
         newKey=newKeyEnter.value
@@ -736,3 +740,4 @@ const values = keys.map((key) => resolvePath(key, el._context));
     el._setUnMount(unMount)
     
 }
+

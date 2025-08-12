@@ -18,7 +18,7 @@ export class PawaElement {
     div.appendChild(element.cloneNode(true))
     this._resetEffects=new Set()
     this._context=context;
-    this._avoidPawaRender=element.getAttribute('pawa-avoid')?true:false;
+    this._avoidPawaRender=element.hasAttribute('pawa-avoid');
     this._el=element 
     this._out=false;
     this._terminateEffects=new Set()
@@ -69,6 +69,8 @@ export class PawaElement {
     this._restProps={}
     this._kill=null
     this._isKill=false
+    this._scriptFetching=element.hasAttribute('script')
+    this._scriptDone=false
     /**
      * @type{object}
      */
@@ -77,6 +79,7 @@ export class PawaElement {
       
       this._componentOrTemplate=true
     }
+    
     if(this._avoidPawaRender){
       element.removeAttribute('pawa-avoid')
       Array.from(element.children).forEach((child) => {
