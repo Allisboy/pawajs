@@ -693,26 +693,14 @@ el._MountFunctions.forEach((func) => {
         el._unMountFunctions.push(result)
       }
 })
-
+el._MountFunctions=[]
 compo?._hook?.effect.forEach((hook) => {
 let result=  stateWatch(hook.effect,hook.deps)
 if (typeof result === 'function') {
   el._unMountFunctions.push(result)
 }
-})
-
-      
-  }
-  
-  export const useComponent=()=>{
-    if (stateContext._hasRun) {
-      return
-    }
-    // console.log(stateContext);
-    
-  }
-
-  
+})   
+  }  
   /**
    * 
    * @param {PawaElement|HTMLElement} el 
@@ -824,7 +812,7 @@ if(Object.entries(el._restProps).length > 0){
   }
   for (const fn of compoAfterCall) {
     try {
-      fn(stateContext,div?.firstElementChild)
+      fn(stateContext,div?.firstElementChild,el)
     } catch (error) {
       __pawaDev.setError({el:el,msg:error.message})
       console.error(error.message)
@@ -1171,9 +1159,9 @@ export let appRecorder
   element: el.tagName,
   pawaAttributes: el._pawaAttribute,
   parent:el.getAttribute('inner-html')?{}:tree,
-  serverKey:el.getAttribute('server-key'),
+  serverKey:el.getAttribute('s-key'),
   running:false,
-  thisSame:tree?.running||false,
+  thisSame:false,
   component:[],
   isComponent: el._componentOrTemplate || el._isElementComponent || false,
   stateContext:stateContext||null,

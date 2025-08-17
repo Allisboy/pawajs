@@ -28,6 +28,7 @@ export class PawaElement {
      */
     this._slots=document.createDocumentFragment()
     this._mainAttribute={}
+    this._preRenderAvoid=[]
     this._lazy=element.tagName ==='IMPORT'?true:false
     this._await=element.tagName ==='AWAIT'?true:false
     this._running=false

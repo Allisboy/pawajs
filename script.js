@@ -31,7 +31,7 @@ export const resume=(el,attr,stateContext)=>{
         success:false,
         loading:false,
     })
-    el._tree.parent.el._context.$resume$=$resume$
+    el._context.$resume$=$resume$
     el._scriptDone=false
     $resume$.value.loading=true
     const src=attr.value
@@ -64,7 +64,7 @@ export const resume=(el,attr,stateContext)=>{
                             stateContext._hasRun = false;
                             keepContext(stateContext);
                         }
-                        el._context.$resume$=$resume$
+                        // el._context.$resume$=$resume$
                         Array.from(el.children).forEach(child => {
                             render(child,el._context,el._tree)
                         })
