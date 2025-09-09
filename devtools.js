@@ -125,7 +125,6 @@ export const PawaDevTool = () => {
         style='
           background:#1e1e2f;
           border-radius:16px;
-          pagba(0,0,0,0.6);
           padding:24px;
           width:90vw;
           height:90vh;

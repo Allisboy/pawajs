@@ -35,6 +35,7 @@ tree.running=true
     PawaComment.Element(comment)
     comment._setCoveringElement(el)
     parent.insertBefore(comment,endComment)
+    el._underControl=comment
     const context=el._context
     let firstEnter=false
     comment._controlComponent=true
@@ -143,6 +144,7 @@ export const Else = (el,attr,stateContext,tree) => {
     el.replaceWith(endComment)
     PawaComment.Element(comment)
     parent.insertBefore(comment,endComment)
+    el._underControl=comment
     const context=el._context
     let firstEnter=false
     let func;
@@ -231,6 +233,7 @@ export const ElseIf = (el,attr,stateContext,tree) => {
     el.replaceWith(endComment)
     PawaComment.Element(comment)
     parent.insertBefore(comment,endComment)
+    el._underControl=comment
     const context=el._context
     let firstEnter=false;
      el._deCompositionElement=true
@@ -382,7 +385,7 @@ export const For=(el,attr,stateContext,tree)=>{
     const endComment=document.createComment(`end for`)
     el.replaceWith(endComment)
     endComment.parentElement.insertBefore(comment,endComment)
-    let arrayLength;
+    el._underControl=comment
     const unique=crypto.randomUUID()
     const insertIndex=new Map()
     const elementArray=new Set()
@@ -510,9 +513,7 @@ const values = keys.map((key) => resolvePath(key, el._context));
     })
        
     }
-    if (firstEnter) {
-        arrayLength=array.length
-        
+    if (firstEnter) {    
         array.forEach((item,index) => {
             const context=el._context
           const itemContext = {
@@ -643,6 +644,7 @@ export const Key=(el,attr,stateContext,tree)=>{
     el._tree.primaryAttribute="key"
     el.replaceWith(endComment)
     endComment.parentElement.insertBefore(comment,endComment)
+    el._underControl=comment
      el._deCompositionElement=true
      el._isKill=true
     el._kill=()=>{

@@ -72,6 +72,7 @@ export class PawaElement {
     this._isKill=false
     this._scriptFetching=element.hasAttribute('script')
     this._scriptDone=false
+    this._underControl=null
     /**
      * @type{object}
      */

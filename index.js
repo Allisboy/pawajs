@@ -191,8 +191,8 @@ export const setPawaAttributes=(...attr) => {
 }
 
 setPawaAttributes('if','else-if','for','else','mount',
-  'unmount','forKey','state-','$$-','props-','event-'
-  ,'s-if','s-for','s-else','s-else-if','s-data-','script','script-error',
+  'unmount','forKey','state-','$$-','props-','on-','out-',
+  's-if','s-for','s-else','s-else-if','s-data-','script','script-error',
   'script-success','script-retry','pawa-component')
 export const getPawaAttributes= () => {
     return pawaAttributes
@@ -717,6 +717,7 @@ const comment = document.createComment(` ${el.tagName}`)
 PawaComment.Element(comment)
 el.replaceWith(endComment)
 endComment.parentElement.insertBefore(comment,endComment)
+el._underControl=comment
 comment._componentElement=el
 comment._controlComponent=true
     const props={}
@@ -1016,7 +1017,7 @@ if (stateContext._transportContext) {
       comment.remove(),endComment.remove();
      }
      endComment.parentElement.insertBefore(comment,endComment)
-     
+     el._underControl=comment
      Array.from(el.content.children).forEach((child) => {
          endComment.parentElement.insertBefore(child,endComment)
          
