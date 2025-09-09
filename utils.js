@@ -101,16 +101,17 @@ export const propsValidator=(obj={},propsAttri,name,template)=>{
         }
       }else{
         if (value.strict) {
-          console.warn(`undefined props ${key} at ${name} component props is needed`)
+          const msg=value.err?`${value.err}. the props is needed `: `props undefined ${name}`
+          console.warn(`${name.toUpperCase()} component props "${key}" is needed. ${msg}`)
           setPawaDevError({
-            message:`undefined props ${key} at ${name} component props is needed`,
+            message:`${name.toUpperCase()} component props "${key}" is needed. ${msg}`,
             error:{
               message:`This props "${key.toUpperCase()}" is needed`,
-              stack:`at ${name}`
+              stack:`at PawaComponent.${name}`
             },
             template:template
           })
-          throw new Error(value.err+ ' the props is needed' || `props undefined ${name}`);
+          throw new Error(msg);
         }else{
           if (value.default || value.default === 0) {
             propsAttri[key]=value.default
@@ -128,12 +129,11 @@ export const safeEval=(context,expression,el)=>{
   const resolvePath = (path, obj) => {
       return path.split('.').reduce((acc, key) => acc?.[key], obj);
   };
-  
       return new Function(...keys,`
         try{
         return ${expression}
         }catch(error){
-        console.error(error)
+        console.error(error.message,error.stack)
         __pawaDev.setError({msg:error.message,stack:error.stack})
         }
         `)

@@ -16,7 +16,7 @@ const DevTabs=({tabs,activeKey})=>{
     return`
         <div state-activekey='0' style="margin:10px;" >
             <div style="display:flex; flex-direction:column; gap:3px;">
-            <div>
+            <div style="margin:10px;">
               ${title}
             </div>
             </div>
@@ -29,23 +29,31 @@ const DevTabs=({tabs,activeKey})=>{
     `
 }
 const DevError=()=>{
-  return `
-    <div style="background-color:red;">
+  return /*html */`
+    <div 
+    style="
+     overflow:scroll; 
+    padding:4px; width:80vw; max-width:700px;
+    height:60vh; max-height:500px;">
       <h1>Error</h1>
-
-      <div for="error in errors.value" for-key="error.timestamp" style="color:white;">
-        <div>@{error?.msg}</div>
-        <div>
-          <p>@{error?.stack}</p>
+      <ul>
+      <li 
+      for="devError, i in errors.value" 
+      for-key="devError.timestamp" style="color:white; margin:10px;">
+        <span>ERROR :@{i === 0 ? 1 : i + 1}</span>
+        <div>@{devError?.msg}</div>
+        <div style="background-color:white; padding:2px; margin:5px; color:red;">
+          <p>@{devError?.stack}</p>
         </div>
         <div style="background-color:white; padding:12px; color:red;">
           <h2>Element:</h2>
-          <p style="font-size:30px;">@{error?.el?error.el:''}</p>
+          <p style="font-size:30px;">@{devError?.el ? devError.el:''}</p>
         </div>
         <div>
-          <span>@{error?.directive?error.directive:''}</span>
+          <span>@{devError?.directive ? devError.directive:''}</span>
         </div>
-      </div>
+      </li>
+      </ul>
     </div>
   `
 }
@@ -65,6 +73,11 @@ export const PawaDevTool = () => {
   RegisterComponent(DevTabs,DevError)
   const open = $state(false)
   const errors=$state([])
+  const tool=$state({
+    component:{
+      total:0
+    }
+  })
   const totalEffect=$state(0)
   const toggleOpen = () => {
     open.value = !open.value
@@ -72,15 +85,13 @@ export const PawaDevTool = () => {
     const setDevTools=()=>{
       errors.value=__pawaDev.errors
         totalEffect.value=__pawaDev.totalEffect
+        tool.value.component.total=__pawaDev.totalComponent
       }
   runEffect(() => {
-      
-        errors.value=__pawaDev.errors
-        totalEffect.value=__pawaDev.totalEffect
-      
+      setDevTools()
   },0)
 
-  useInsert({ open, toggleOpen,errors,totalEffect,setDevTools })
+  useInsert({ open, toggleOpen,errors,totalEffect,setDevTools,tool })
 
   return `
   <template>
@@ -119,7 +130,7 @@ export const PawaDevTool = () => {
         backdrop-filter:blur(4px);
         z-index:999;
         padding:20px;
-      ' mount="setDevTools()">
+      ' >
       
       <div 
         style='
@@ -155,6 +166,7 @@ export const PawaDevTool = () => {
           <div>
             <span>numbers of errors: @{errors.value.length}</span>
             <span>active effects : @{totalEffect.value}</span>
+            <span>total component : @{tool.value.component.total}</span>
           </div>
           <dev-tabs tabs="${tab}"></dev-tabs>
         </div>

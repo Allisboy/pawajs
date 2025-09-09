@@ -461,17 +461,17 @@ const values = keys.map((key) => resolvePath(key, el._context));
         const keyMap=new Map()
         
         elementArray.forEach(child=>{
-            keyMap.set(child._index,child)
+            keyMap.set(child._forKey,child)
         })
-            Array.from(div.children).forEach((child,index) => {
-                const key=child.getAttribute('for-key')
-                const context=el._context
-              const itemContext = {
-              [arrayItem]: array[index],
-              [indexes]: index,
-              ...context
-            }
-            if (keyMap.get(key)) {      
+        Array.from(div.children).forEach((child,index) => {
+            const key=child.getAttribute('for-key')
+            const context=el._context
+            const itemContext = {
+                [arrayItem]: array[index],
+                [indexes]: index,
+                ...context
+                }
+                if (keyMap.get(key)) {      
                 let oldElement=keyMap.get(key)
                 const fragment=oldElement._resetForKeyElement()
                 oldElement.remove()
@@ -490,12 +490,12 @@ const values = keys.map((key) => resolvePath(key, el._context));
                 child.setAttribute('for-unique',unique)
                 child.setAttribute('data-for-index',index)
                 keyComment._index=index
-                processNode(newElement,itemContext)
+                processNode(child,itemContext)
                 
                 endComment.parentElement.insertBefore(endKeyComment,endComment)
                 endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
                 endKeyComment.parentElement.insertBefore(child,endKeyComment)
-                insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
+                insertIndex.set(index,child.getAttribute('for-key') || 'key')
                 if (stateContext._hasRun) {
                     stateContext._hasRun=false
                     keepContext(stateContext)
@@ -538,6 +538,9 @@ const values = keys.map((key) => resolvePath(key, el._context));
         endKeyComment.parentElement.insertBefore(keyComment,endKeyComment)
         endKeyComment.parentElement.insertBefore(newElement,endKeyComment)
         insertIndex.set(index,newElement.getAttribute('for-key') || 'key')
+        // if(newElement.getAttribute('for-key)){
+        //   keyMap
+        // }
         if (stateContext._hasRun) {
             stateContext._hasRun=false
             keepContext(stateContext)

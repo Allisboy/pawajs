@@ -20,12 +20,15 @@ window.__pawaDev = {
   components: new Set(),
   renderCount: 0,
   reactiveUpdates: 0,
+  totalComponent:0,
   performance: {
     renderTime: [],
     effectTime: [],
-    componentTime: []
+    componentTime: [],
+    start:0,
+    end:0
   },
-  setError: ({el, msg, directives, stack} = {}) => {
+  setError: ({el, msg, directives, stack,template} = {}) => {
     if(__pawaDev.tool !== true) return
     if(__pawaDev.errorState) {
       __pawaDev.errorState.value = true
@@ -35,7 +38,8 @@ window.__pawaDev = {
       msg, 
       directives,
       stack,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      template:template?template:''
     })
     console.error(msg)
   },
@@ -610,6 +614,7 @@ if (dependencies) {
      imports:{
        type:Function,
        strict:true,
+       err:'import props is required and must be a Function.'
      },
      loading:{
        type:String,
@@ -884,15 +889,18 @@ if (stateContext._transportContext) {
   delete pawaContext[contextId]
 }
  stateContext=formerStateContext  
-
+__pawaDev.totalComponent++
    
     
     
   }
   
-  
+  /**
+   * @param {PawaElement | HTMLElement} el
+   */
   const mainAttribute = (el, exp) => {
     const attrMap = new Map();
+    if(el._running) return
     // Store original attribute value
     if (el._hasForOrIf()) {
       return
@@ -909,6 +917,7 @@ if (stateContext._transportContext) {
       try{
         // Always use original value from map for evaluation
       let value = attrMap.get(exp.name);
+      let isBoolean
       const regex = /@{([^}]*)}/g;
         const keys = Object.keys(el._context);
         const resolvePath = (path, obj) => {
@@ -918,11 +927,12 @@ if (stateContext._transportContext) {
         
         value = value.replace(regex, (match, expression) => {
           const func = new Function(...keys, `return ${expression}`);
+          isBoolean=func(...values)
           return func(...values);
         });
         
       if (removeAttribute.has(exp.name)) {
-        if (value) {
+        if (isBoolean) {
           el.setAttribute(exp.name, '');
         } else {
           el.removeAttribute(exp.name)
@@ -933,7 +943,7 @@ if (stateContext._transportContext) {
       
       
       }catch(error){
-        console.warn(`failed at attribute ${exp.name}`)
+        console.warn(`failed at attribute ${exp.name}`,el)
         setPawaDevError({
           message:`error at attribute ${error.message}`,
           error:error,
@@ -1018,12 +1028,15 @@ if (stateContext._transportContext) {
      }
      endComment.parentElement.insertBefore(comment,endComment)
      el._underControl=comment
+     let element=[]
      Array.from(el.content.children).forEach((child) => {
          endComment.parentElement.insertBefore(child,endComment)
-         
-         render(child,el._context,tree)
-         
+         element.push(child)
+        //  render(child,el._context,tree)   
      })
+     element.forEach(child=>{
+        render(child,el._context,tree) 
+    })
   }
   /**
    * @param {HTMLElement} el
