@@ -1,7 +1,7 @@
 {
   "name": "pawajs",
-  "version": "1.0.29",
-  "description": "pawajs library for easy building web ui, enhancing html element ",
+  "version": "1.0.32",
+  "description": "pawajs library for easily building web ui, enhancing html element, micro frontend etc ",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

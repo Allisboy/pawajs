@@ -123,24 +123,35 @@ export const propsValidator=(obj={},propsAttri,name,template)=>{
   }
   return {...propsAttri}
 }
-export const safeEval=(context,expression,el)=>{
+export const safeEval=(context,expression,el,resolve=false)=>{
   try{
     const keys = Object.keys(context);
   const resolvePath = (path, obj) => {
       return path.split('.').reduce((acc, key) => acc?.[key], obj);
   };
-      return new Function(...keys,`
-        try{
-        return ${expression}
-        }catch(error){
-        console.error(error.message,error.stack)
-        __pawaDev.setError({msg:error.message,stack:error.stack})
-        }
-        `)
+  if(resolve){
+    return new Function(...keys,`
+      try{
+      return ${expression}
+      }catch(error){
+      console.error(error.message,error.stack)
+      __pawaDev.setError({msg:error.message,stack:error.stack})
+      }
+      `)(...getEvalValues(context))
+  }else{
+    return new Function(...keys,`
+      try{
+      return ${expression}
+      }catch(error){
+      console.error(error.message,error.stack)
+      __pawaDev.setError({msg:error.message,stack:error.stack})
+      }
+      `)
+  }
   
   }catch(error){
     setPawaDevError({
-          message:`Error from IF directive ${error.message}`,
+          message:`Error : ${error.message} ${error.stack}`,
           error:error,
           template:el._template
         })
@@ -232,6 +243,7 @@ export const replaceTemplateOperators = (expression) => {
   return expression
     .replace(/\/\*/g, '`')
     .replace(/\*\//g, '`'); // Also replace closing */ with backtick if needed
+    // .replace(/&gt;/g,'>')
 };
 
 export function stringToUniqueNumber(str) {

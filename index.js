@@ -1,7 +1,7 @@
 import { track, trigger,queueEffect, createEffect,templateCache, } from './reactive.js'
 import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
-  unMountElement,mountElement,For,States,ref,Key,documentEvent
+  unMountElement,mountElement,For,States,ref,Key,documentEvent,chunk
 } from './power.js'
 import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover,stringToUniqueNumber } from './utils.js';
 import {PawaDevTool} from './devtools.js';
@@ -161,7 +161,7 @@ export const PluginSystem=(...func)=>{
         renderAfterPawa.add(getPlugin.renderSystem?.afterPawa)
       }
       if (getPlugin.renderSystem?.beforeChildRender && typeof getPlugin.renderSystem?.beforeChildRender === 'function') {
-        renderAfterPawa.add(getPlugin.renderSystem?.beforeChildRender)
+        renderBeforePawa.add(getPlugin.renderSystem?.beforeChildRender)
       }
     }
   })
@@ -509,12 +509,12 @@ const promiseCallback= (func,main) => {
     }
     let timeOut
     const main= createDeepProxy(states, (target, property) => {
-    if (target.id === states.id && localStore) {
+    if (localStore) {
       if (timeOut) {
         clearTimeout(timeOut)
       }
       timeOut=setTimeout(() => {
-          localStorage.setItem(localStore,JSON.stringify(target))
+          localStorage.setItem(localStore,JSON.stringify(states))
       },50)
     }
     // console.log(target);
@@ -909,6 +909,7 @@ __pawaDev.totalComponent++
       return
     }
     attrMap.set(exp.name, exp.value);
+    el._preRenderAvoid.push(exp.name)
     const removeAttribute = new Set()
     removeAttribute.add('disabled')
     el._mainAttribute[exp.name]=exp.value
@@ -1134,7 +1135,8 @@ __pawaDev.totalComponent++
     unmount:unMountElement,
     ref:ref,
     key:Key,
-    script:resume
+    script:resume,
+    chunk:chunk
   }
   export const useRef=() => {
     return{value:null}

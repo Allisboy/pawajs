@@ -1,5 +1,5 @@
 import {components,escapePawaAttribute,getPawaAttributes} from './index.js';
-import {splitAndAdd,replaceTemplateOperators,setPawaDevError} from './utils.js';
+import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues,safeEval} from './utils.js';
 import PawaComponent from './pawaComponent.js';
 
 
@@ -45,7 +45,6 @@ export class PawaElement {
     this._getNode=this.getNode
     this._componentOrTemplate=false
     this._props={}
-    this._useInView=element.getAttribute('render-inview')?true:false
     this._isView=null
     this._isElementComponent=false
     this._pawaAttribute={}
@@ -169,7 +168,7 @@ export class PawaElement {
     })
   }
   hasForOrIf(){
-    if (this._el.getAttribute('if') || this._el.getAttribute('for') || this._el.getAttribute('else') || this._el.getAttribute('else-if')) {
+    if (this._el.getAttribute('if') || this._el.getAttribute('for') || this._el.getAttribute('chunk') || this._el.getAttribute('script') || this._el.getAttribute('else') || this._el.getAttribute('else-if')) {
       return true
     }else{
       return false
@@ -258,35 +257,31 @@ export class PawaElement {
     }
     const tag = this._el.tagName
    try {
-    if (components.has(tag)) {
-      this._elementType= 'component'
-      
-      this._componentOrTemplate=true
-      this._componentName=this._el.tagName
-      this._deCompositionElement=true
-      this._component=new PawaComponent(components.get(tag))
-      Array.from(this._el.children).forEach(slot =>{
-        
-        if (slot.tagName === 'TEMPLATE' && slot.getAttribute('prop')) {
-          
-          this._slots.appendChild(slot)
-        }
-      })
-      this._componentChildren=this._el.innerHTML
-      
-    } else if (components.has(splitAndAdd(tag))) {
+      if (components.has(splitAndAdd(tag))) {
       this._elementType='component'
       this._componentOrTemplate=true
       this._deCompositionElement=true
       this._componentName=splitAndAdd(tag)
       this._component=new PawaComponent(components.get(splitAndAdd(tag)))
-      // console.log(this._component);
-      
       Array.from(this._el.children).forEach(slot =>{
-        if (slot.tagName === 'template' && slot.getAttribute('prop')) {
-          
+        if (slot.tagName === 'TEMPLATE' && slot.getAttribute('prop') && !slot.hasAttribute('js')) {
           this._slots.appendChild(slot)
         }
+        // }else if(slot.tagName === 'TEMPLATE' && slot.getAttribute('prop') && slot.hasAttribute('js')){
+        //   const template=slot.content.textContent
+          
+        //   try{
+        //     const value=safeEval(this._context,`${replaceTemplateOperators(template).trim()}`,this._el,true)
+        //     let func=value()
+        //     console.log(func)
+        //   }catch(error){
+        //     setPawaDevError({
+        //       template:this._template,
+        //       message:`Error while transForming props at Component props: ${slot.getAttribute('prop')}: ${this._template}`,
+        //       error:error
+        //     })
+        //   }
+        // }
       })
       this._componentChildren=this._el.innerHTML
       
