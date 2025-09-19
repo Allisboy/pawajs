@@ -6,13 +6,13 @@ const renderFor=(array,callback)=>{
 }
 const DevTabs=({tabs,activeKey})=>{
     
-    const title=renderFor(tabs,(item,index)=>`
+    const title=renderFor(tabs(),(item,index)=>`
         <span 
         style="padding:10px; @{activekey.value === ${index} ? 'background-color:white; color:blue;' : 'background-color:#1e1e2f; color:white;'}" 
         on-click="activekey.value=${index}">${item.title}</span>
     `)
     
-    useInsert({tabs})
+    useInsert({tabs:tabs()})
     return`
         <div state-activekey='0' style="margin:10px;" >
             <div style="display:flex; flex-direction:column; gap:3px;">

@@ -316,33 +316,6 @@ export class PawaElement {
                   name=attr.name.slice(1)
                 }
                 this._restProps[name]={name:name,value:attr.value}    
-       }else if(attr.name.startsWith(':')){
-        //reactive props startsWith ":" 
-          const pawaAttribute=getPawaAttributes()
-
-          if (pawaAttribute.has(attr.name) || attr.name.includes('-') || attr.name === 'class') {
-            return
-          }
-          const propsName=attr.name.slice((0,1)) 
-          try {
-            
-       const keys = Object.keys(this._context);
-const resolvePath = (path, obj) => {
-  return path.split('.').reduce((acc, key) => acc?.[key], obj);
-};
-const values = keys.map((key) => resolvePath(key, this._context));
-
-const value=new Function(...keys,`
-return ()=>${replaceTemplateOperators(attr.value)}
-`)(...values)
-this._reactiveProps[propsName]=value
-          } catch (error) {
-            setPawaDevError({
-              message:`error from ${this._componentName} prop :${propsName} ${error.message}`,
-              error:error,
-              template:this._template
-            })
-          }
        }else{
         const pawaAttribute=getPawaAttributes()
         
@@ -359,7 +332,7 @@ const values = keys.map((key) => resolvePath(key, this._context));
 
 const value=new Function(...keys,`
 try{
-return ${replaceTemplateOperators(attr.value)}
+return ()=>${replaceTemplateOperators(attr.value)}
 }catch(error){
 console.error(error.message,error.stack)
 }

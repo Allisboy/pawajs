@@ -28,7 +28,7 @@ window.__pawaDev = {
     start:0,
     end:0
   },
-  setError: ({el, msg, directives, stack,template} = {}) => {
+  setError: ({el, msg, directives, stack,template,warn} = {}) => {
     if(__pawaDev.tool !== true) return
     if(__pawaDev.errorState) {
       __pawaDev.errorState.value = true
@@ -41,7 +41,10 @@ window.__pawaDev = {
       timestamp: Date.now(),
       template:template?template:''
     })
-    console.error(msg)
+    if(warn){
+      console.warn(msg,stack,template)
+    }
+    console.error(msg,stack)
   },
   logRender: (component, time) => {
     __pawaDev.renderCount++
@@ -76,11 +79,29 @@ const renderBeforeChild=new Set()
 const startsWithSet=new Set()
 const fullNamePlugin=new Set()
 const externalPlugin={}
+const externalPluginMap=new Map()
 let pawaAttributes=new Set()
 export const escapePawaAttribute=new Set()
+export const dependentPawaAttribute=new Set()
+
+export const removePlugin=(...pluginName)=>{
+  pluginName.forEach(n=>{
+    if(pawaAttributes.has(n)){
+      pawaAttributes.delete(n)
+      delete externalPlugin[n]
+      if(externalPluginMap.has(n)){
+        const extArrar=externalPluginMap.get(n)
+        extArrar.forEach(ex=>{
+          dependentPawaAttribute.delete(ex)
+        })
+      }
+    }
+
+  })
+}
 
 /**
- * @typedef {{startsWith:string,escape:boolean,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
+ * @typedef {{startsWith:string,escape:boolean,dependency:Array<string>,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
  */
 /**
  * @typedef {{
@@ -117,17 +138,28 @@ export const PluginSystem=(...func)=>{
           console.warn('Either Plugins FullName or startsWith. you are not required to use to of does plugin registers at this same entry.')
           return
         }
+        const extPluginArray=[]
+        if (attrPlugins?.dependency && attrPlugins?.dependency.length > 0) {
+          attr.Plugin.dependency.forEach(dp =>{
+            if(dependentPawaAttribute.has(dp)){
+              __pawaDev.setError({msg:`${dp} is already used - from pawa plugin it might cause some issues`,warn:true})
+            }
+            dependentPawaAttribute.add(dp)
+            extPluginArray.push(dp)
+          })
+        }
         if (attrPlugins?.fullName) {
           if (pawaAttributes.has(attrPlugins.fullName) ) {
             console.warn(`attribute plugin already exist ${attrPlugins.fullName}`)
             return
           }
           if (attrPlugins?.escape) {
-                      escapePawaAttribute.add(attrPlugins.fullName)
+              escapePawaAttribute.add(attrPlugins.fullName)
           }
           pawaAttributes.add(attrPlugins.fullName)
         fullNamePlugin.add(attrPlugins.fullName)
         externalPlugin[attrPlugins.fullName]=attrPlugins?.plugin
+        if(extPluginArray > 0) externalPluginMap.set(attrPlugins.fullName,extPluginArray)
         }else if (attrPlugins?.startsWith) {
           if (pawaAttributes.has(attrPlugins.startsWith) ) {
           console.warn(`attribute plugin already exist ${attrPlugins.startsWith}`)
@@ -139,6 +171,7 @@ export const PluginSystem=(...func)=>{
         pawaAttributes.add(attrPlugins.startsWith)
         startsWithSet.add(attrPlugins.startsWith)
         externalPlugin[attrPlugins.startsWith]=attrPlugins?.plugin
+        if(extPluginArray > 0) externalPluginMap.set(attrPlugins.startsWith,extPluginArray)
         }
       })
       
@@ -193,11 +226,17 @@ export const setPawaAttributes=(...attr) => {
       pawaAttributes.add(att)
   })
 }
-
+const setDependentAttibute=(...name)=>{
+  name.forEach(att=>{
+    dependentPawaAttribute.add(att)
+  })
+}
 setPawaAttributes('if','else-if','for','else','mount',
   'unmount','forKey','state-','$$-','props-','on-','out-',
   's-if','s-for','s-else','s-else-if','s-data-','script','script-error',
-  'script-success','script-retry','pawa-component')
+  'script-success','script-retry','pawa-component','chunk')
+  setDependentAttibute('chunk-success','chunk-retry','chunk-error')
+  
 export const getPawaAttributes= () => {
     return pawaAttributes
 }
@@ -316,14 +355,13 @@ export const runEffect=(callback,deps) => {
  * @param {object} props 
  * @returns {object}
  */
-export const useValidateProps=(props={}) => {
-  if (!stateContext) {
-    console.warn('must be used inside of a component')
-    return
-  } 
-    return propsValidator(props,stateContext._prop,stateContext._name,stateContext._template)
+export const useValidateComponent=(component,object)=>{
+  if (typeof component === 'function' ) {
+    if(component.name){
+      component.validateProps=object
+    }
+  }
 }
-
 /**
  * @returns {{id:string,setValue:()=>void}}
  */
@@ -431,24 +469,6 @@ export const setStateContext=(context) => {
     formerStateContext=stateContext
 }
 
-export const useProps=()=>{
-  if (stateContext === null) {
-      throw Error('state can not be created outside of a component')
-    }
-    if (stateContext._hasRun) {
-      return 
-    }
-    const reactive=stateContext._reactiveProps
-    const run=(callback,name)=>{
-      if (reactive[name]) {
-        callback()
-      }
-    }
-  return {
-    ...stateContext._reactiveProps,
-    run
-  }
-}
 const promiseCallback= (func,main) => {
   const promise=func()
     promise.then(res => {
@@ -554,11 +574,7 @@ const promiseCallback= (func,main) => {
     
     }
     
-  
-  const watchCallbacks = new Map();
-  
-  
-  
+  const watchCallbacks = new Map();  
   const stateWatch = (callback, dependencies) => {
     if (!callback) {
       console.warn('stateWatch: Callback function is required');
@@ -610,35 +626,24 @@ if (dependencies) {
   };
   
  export const LazyLoading=({imports,children,name,loading,error})=>{
-  const {}= useValidateProps({
-     imports:{
-       type:Function,
-       strict:true,
-       err:'import props is required and must be a Function.'
-     },
-     loading:{
-       type:String,
-       default:'<div>Loading...</div>'
-     },
-     name:{
-       type:String,
-       strict:true
-     }
-   })
      const asyncState=$state({
        loading:false,
        error:false,
      })
+     const imp=imports()
+     const componentName=name()
+     const loaderSlot=loading()
+     const errorSlot=error()
      const retry=()=>{
        asyncState.value.loading = true;
        imports().then(res => {
          // The component is expected to be the default export from the module.
          // We also check for a named export matching `name` for development convenience.
-         const componentToRegister = res.default || res[name];
+         const componentToRegister = res.default || res[componentName];
  
          if (componentToRegister) {
            // RegisterComponent expects ('Name', function), which is what we provide.
-           RegisterComponent(name, componentToRegister);
+           RegisterComponent(componentName, componentToRegister);
            asyncState.value.loading = false;
          } else {
            console.error(`Lazy-loaded component for tag <${name}> not found in module. Make sure it's the default export or a named export matching the 'name' prop.`);
@@ -654,7 +659,7 @@ if (dependencies) {
        });
      }
      runEffect(()=>{
-       if (typeof imports === 'function') {
+       if (typeof imp === 'function') {
          retry()
        }
      },0)
@@ -663,10 +668,10 @@ if (dependencies) {
      return`
      <template>
        <template if='asyncState.value.loading'>
-         ${loading}
+         ${loaderSlot}
        </template>
        <template if='asyncState.value.error'>
-         ${error}
+         ${errorSlot?errorSlot:''}
        </template>
        <template if='!asyncState.value.loading'>
         ${children}
@@ -674,7 +679,21 @@ if (dependencies) {
      </template>
      `
    }
-   
+   useValidateComponent({
+     imports:{
+       type:Function,
+       strict:true,
+       err:'import props is required and must be a Function.'
+     },
+     loading:{
+       type:String,
+       default:'<div>Loading...</div>'
+     },
+     name:{
+       type:String,
+       strict:true
+     }
+   })
   const elementComponent= (el,appTree) => {
       if (el._running) {
         return
@@ -736,8 +755,8 @@ comment._controlComponent=true
     const slots={}
     const reactiveProps={}
     Array.from(slot.children).forEach(prop =>{
-      if (prop.getAttribute('prop')) {
-        slots[prop.getAttribute('prop')]=prop.innerHTML
+      if (prop.hasAttribute('prop')) {
+        slots[prop.getAttribute('prop')]=()=>prop.innerHTML
       }else{
         console.warn('sloting props must have prop attribute')
       }
@@ -757,15 +776,20 @@ comment._controlComponent=true
         reactiveProps[key]=value
       }
     }
+    const validprops=el._component.validPropRule
+    let done=true
+    if(validprops && Object.entries(validprops).length > 0){
+      done= propsValidator(validprops,{...el._props,...slots},el._componentName,el._template,el)
+    }
     const app = {
       children,
-      app:{insert,useValidateProps},
+      app:{insert},
       ...slots,
       ...el._props
     }
     for (const fn of compoBeforeCall) {
       try {
-        fn(stateContext,app)
+          fn(stateContext,app)
       } catch (error) {
         __pawaDev.setError({el:el,msg:error.message})
         console.error(error.message)
@@ -776,12 +800,9 @@ el._componentTerminate=() => {
     comment._terminateByComponent(endComment)
 }
 const component =el._component
-// console.log(component,el);
-
-    setStateContext(component)
-    // console.log(stateContext);
+setStateContext(component)
+stateContext._prop={children,...el._props,...slots}
     stateContext._elementContext={...el._context}
-    stateContext._prop={children,...el._props,...slots}
     stateContext._name=el._componentName
     stateContext._reactiveProps=reactiveProps
     stateContext._template=el._template
@@ -791,7 +812,11 @@ const component =el._component
 
 let compo 
   try {
+    if(done){
     compo= sanitizeTemplate(component.component(app))
+    }else{
+      compo=""
+    }
   } catch (error) {
     setPawaDevError({
       message:`error from ${el._componentName} component  ${error.message}`,
@@ -1349,7 +1374,7 @@ export const pawaStartApp=(app,callback) => {
    useInsert,
    pawaTools,
    useContext,
-   useValidateProps,
+   useValidateComponent,
    setPawaAttributes,
    setContext,
    $state,

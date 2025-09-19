@@ -1,5 +1,5 @@
 import { createEffect } from './reactive.js';
-import { render, $state, keepContext, getCurrentContext } from './index.js';
+import { render, $state, keepContext } from './index.js';
 import { PawaComment, PawaElement } from './pawaElement.js';
 import { processNode, pawaWayRemover, safeEval, getEvalValues, setPawaDevError } from './utils.js';
 export const If = (el, attr, stateContext, tree) => {
@@ -804,15 +804,23 @@ export const chunk = (el, attr, stateContext, tree) => {
             newElement.removeAttribute('chunk-success')
             newElement.removeAttribute('chunk-error')
             newElement.removeAttribute('chunk-retry')
-            script.onload = () => {
-                Promise.resolve().then(() => {
-                    parent.insertBefore(newElement, endComment)
+            const enterElement=()=>{
+                parent.insertBefore(newElement, endComment)
                     if (stateContext._hasRun) {
                         stateContext._hasRun = false
                         keepContext(stateContext)
                     }
                     render(newElement, context, tree)
+                    el._tree.componentName=newElement._tree.componentName
+                    el._tree.isComponent=newElement._tree.isComponent
                     stateContext._hasRun = true
+            }
+            if(chunkSet.has(attr.value)){
+                enterElement()
+            }
+            script.onload = () => {
+                Promise.resolve().then(() => {
+                    enterElement()
                     if (chunkSet.has(attr.value)) {
                         script.remove()
                     } else {

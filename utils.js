@@ -87,9 +87,8 @@ export const setPawaDevError=({message,error,template})=>{
    __pawaDev.setError({msg:message ,stack:error.stack,el:template})
 }
 
-export const propsValidator=(obj={},propsAttri,name,template)=>{
-  let newObj={}
-  
+export const propsValidator=(obj={},propsAttri,name,template,el)=>{
+  let done=true
   const jsTypes=['Array','String','Number']
   for (const[key,value] of Object.entries(obj)) {
     const propsValue=propsAttri[key]
@@ -101,27 +100,29 @@ export const propsValidator=(obj={},propsAttri,name,template)=>{
         }
       }else{
         if (value.strict) {
-          const msg=value.err?`${value.err}. the props is needed `: `props undefined ${name}`
+          const msg=value.err?`${value.err}. the props is needed `: `props "${key}" is undefined at ${name}`
           console.warn(`${name.toUpperCase()} component props "${key}" is needed. ${msg}`)
           setPawaDevError({
             message:`${name.toUpperCase()} component props "${key}" is needed. ${msg}`,
             error:{
-              message:`This props "${key.toUpperCase()}" is needed`,
+              message:`This props "${key}" is needed`,
               stack:`at PawaComponent.${name}`
             },
             template:template
           })
-          throw new Error(msg);
+          done=false
+          throw new Error(msg,`error at ${template}`);
         }else{
-          if (value.default || value.default === 0) {
-            propsAttri[key]=value.default
+          if (value?.default || value?.default === 0) {
+            propsAttri[key]=()=>value?.defualt
+            el._props[key]=()=>value?.default
           }
         }
 
       }
     }
   }
-  return {...propsAttri}
+  return done
 }
 export const safeEval=(context,expression,el,resolve=false)=>{
   try{
@@ -175,8 +176,8 @@ export const sanitizeTemplate = (temp) => {
   return temp.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, '');
 };
 
-export const ComponentProps=(some,message,name)=>{
-
+export const ComponentProps=(somes,message,name)=>{
+let some=somes?.() || somes
     return({
     Array:()=>{
 
