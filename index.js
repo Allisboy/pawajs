@@ -1,7 +1,7 @@
 import { track, trigger,queueEffect, createEffect,templateCache, } from './reactive.js'
 import {PawaElement,PawaComment} from './pawaElement.js';
 import {If,event,Else,ElseIf,
-  unMountElement,mountElement,For,States,ref,Key,documentEvent,chunk
+  unMountElement,mountElement,For,States,ref,documentEvent,chunk
 } from './power.js'
 import {propsValidator,sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover,stringToUniqueNumber } from './utils.js';
 import {PawaDevTool} from './devtools.js';
@@ -491,8 +491,8 @@ const promiseCallback= (func,main) => {
  * 
  * id is not meant to be touched its pawajs way of tracking state  
  */
-  export const $state=(initialValue,localStore=null)=>{
-    if (stateContext?._hasRun) { 
+  export const $state=(initialValue,localStore=null,global=false)=>{
+    if (stateContext?._hasRun && global === false) { 
       return {value:null,id:'2626262'}
     }   
     const id=crypto.randomUUID()
@@ -1159,7 +1159,6 @@ __pawaDev.totalComponent++
     mount:mountElement,
     unmount:unMountElement,
     ref:ref,
-    key:Key,
     script:resume,
     chunk:chunk
   }
@@ -1318,7 +1317,7 @@ el._tree=appTree
     
     if (el._out === false || el._running === false || el._componentOrTemplate !== true ) {
       
-      if (el._running || el._scriptFecthing) {
+      if (el._running || el._scriptFetching) {
         return true
       }
       for (const fn of renderBeforeChild) {

@@ -129,13 +129,6 @@ export class PawaElement {
   setUnMounts(func){
     this._unMountFunctions.push(func)
   }
-  runningPawaDirectives(){
-    Array.from(this._el.attributes).forEach((attr) => {
-        if (attr.name.startsWith('runing-')) {
-          // console.log(true)
-        }
-    })
-  }
   isPawaElementComponent(){
     const compo=this._el.getAttribute('pawa-component')
     if (compo && components.get(compo)) {
@@ -329,10 +322,12 @@ const resolvePath = (path, obj) => {
   return path.split('.').reduce((acc, key) => acc?.[key], obj);
 };
 const values = keys.map((key) => resolvePath(key, this._context));
-
+if(attr.value=== '')attr.value=true;
 const value=new Function(...keys,`
 try{
-return ()=>${replaceTemplateOperators(attr.value)}
+return ()=>{
+  return ${replaceTemplateOperators(attr.value)}
+}
 }catch(error){
 console.error(error.message,error.stack)
 }

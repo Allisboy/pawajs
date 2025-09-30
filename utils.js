@@ -1,3 +1,5 @@
+
+
 export const splitAndAdd=(string) => {
    const strings=string.split('-')
   let newString=''
@@ -94,7 +96,7 @@ export const propsValidator=(obj={},propsAttri,name,template,el)=>{
     const propsValue=propsAttri[key]
     if(typeof value === 'object'){
       if(propsAttri[key] || propsAttri[key] === 0){
-        const checker=ComponentProps(propsAttri[key],value?.err,name)
+        const checker=ComponentProps(propsAttri[key],value?.err,name,key)
         if (value.type) {
         checker[value.type.name]()
         }
@@ -113,8 +115,8 @@ export const propsValidator=(obj={},propsAttri,name,template,el)=>{
           done=false
           throw new Error(msg,`error at ${template}`);
         }else{
-          if (value?.default || value?.default === 0) {
-            propsAttri[key]=()=>value?.defualt
+          if (value?.default !== undefined ) {
+            propsAttri[key]=()=>value?.default
             el._props[key]=()=>value?.default
           }
         }
@@ -176,7 +178,7 @@ export const sanitizeTemplate = (temp) => {
   return temp.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, '');
 };
 
-export const ComponentProps=(somes,message,name)=>{
+export const ComponentProps=(somes,message,name,key)=>{
 let some=somes?.() || somes
     return({
     Array:()=>{
@@ -184,7 +186,7 @@ let some=somes?.() || somes
         if (Array.isArray(some)) {
             return true
         }else{
-            throw new Error(message ?message + ' / Not type of an Array ': `${some} must be an array at ${name} component`);
+            throw new Error(message ?message + ' / Not type of an Array ': `${key} must be an array at ${name} component`);
 
         }
     },
@@ -192,7 +194,7 @@ let some=somes?.() || somes
         if (typeof some === 'string') {
             return true
         }else{
-            throw new Error(message? message + ' / Not type of a String' :`${some} must be a string at ${name} component`);
+            throw new Error(message? message + ' / Not type of a String' :`${key} must be a string at ${name} component`);
 
         }
     },
@@ -200,7 +202,7 @@ let some=somes?.() || somes
         if (typeof some === 'number') {
             return true
         }else{
-            throw new Error(message? message+' / Not type of a Number ': `${some} must be a number at ${name} component`);
+            throw new Error(message? message+' / Not type of a Number ': `${Key} must be a number at ${name} component`);
 
         }
     },
@@ -208,7 +210,7 @@ let some=somes?.() || somes
         if (typeof some === 'object') {
             return true
         }else{
-            throw new Error(message? message+' / Not type of an Object ' :`${some} must be an object at ${name} component`);
+            throw new Error(message? message+' / Not type of an Object ' :`${key} must be an object at ${name} component`);
 
         }
     },
@@ -216,14 +218,14 @@ let some=somes?.() || somes
         if (typeof some === 'function') {
             return true
         }else{
-            throw new Error(message? message+' / Not type of a Function ': `${some} must be a function at ${name} component`);
+            throw new Error(message? message+' / Not type of a Function ': `${key} must be a function at ${name} component`);
         }
     },
     Boolean:()=>{
         if (typeof some === 'boolean') {
             return true
         }else{
-            throw new Error(message? message+' / Not type of a Boolean ' :`${some} must be a Boolean at ${name} component`);
+            throw new Error(message? message+' / Not type of a Boolean ' :`${key} must be a Boolean at ${name} component`);
 
         }
     },

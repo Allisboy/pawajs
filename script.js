@@ -12,6 +12,7 @@ const renderSchedule=()=>{
    
     schedule.forEach(func=>{
         func() 
+        schedule.delete(func)
     })
 }
 const addIntoSchedule=(fn)=>{
