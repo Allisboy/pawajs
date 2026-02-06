@@ -1,0 +1,27 @@
+{
+  "name": "pawajs",
+  "version": "1.0.0",
+  "description": "pawajs library (html runtime) for easily building web ui, enhancing html element, micro frontend etc ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Allisboy/pawajs.git"
+  },
+  "keywords": [
+    "pawajs",
+    "js",
+    "html",
+    "css",
+    "web development",
+    "ui"
+  ],
+  "author": "Allwell Oriso-owubo Owupele",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Allisboy/pawajs/issues"
+  },
+  "homepage": "https://github.com/Allisboy/pawajs#readme"
+}
