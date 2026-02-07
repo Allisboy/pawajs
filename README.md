@@ -5,7 +5,7 @@ pawajs - power the web (reactivity and html runtime)
 
 **A lightweight and reactive JavaScript library for building modern web interfaces with a simple, declarative syntax.**
 
-PawaJS is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture with a powerful reactivity system. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering and hydration, PawaJS is equipped for performance and scalability.
+PawaJS is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering, PawaJS is equipped for performance and scalability.
 
 ---
 
@@ -18,7 +18,7 @@ PawaJS is a JavaScript library designed for building dynamic user interfaces. It
 -   **Efficient List Rendering:** Render lists of data with the `for` directive, including support for keyed updates for optimal performance.
 -   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
 -   **Context API:** Pass data through the component tree without having to pass props down manually at every level.
--   **Server-Side Rendering (SSR) & Hydration:** PawaJS is built with SSR in mind, featuring a "resuming" mechanism to efficiently hydrate server-rendered HTML on the client.
+-   **Server-Side Rendering (SSR) Isomorphic architecture:** PawaJS is built with SSR in mind, featuring a "resuming" mechanism to efficiently continue server-rendered HTML on the client.
 -   **Plugin System:** Extend PawaJS's core functionality with custom directives and lifecycle behaviors.
 
 ---
@@ -30,8 +30,23 @@ Install PawaJS into your project using npm:
 ```bash
 npm install pawajs
 ```
+CDN
+ 
+```html
+    <head>
+        <script type="module" href="https://cdn.jsdelivr.net/npm/pawajs@1.2.0/cdn/index.js"></script>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script type="module">
+            window.$pawa.pawaStartApp(document.getElementById('app'));
+        </script>
+    </body>
+```
 
-Then, you can import it into your application:
+OR
+
+Then, you can import it into your application: through npm
 
 ```javascript
 import { pawaStartApp, $state, RegisterComponent, html } from 'pawajs';
@@ -52,6 +67,7 @@ Here's a basic example to show you how PawaJS works.
 </head>
 <body>
     <div id="app">
+        <h1 state-name="'PAWAJS'">@{name.value}</h1>
         <!-- The component will be rendered here -->
         <counter-app></counter-app>
     </div>
@@ -106,7 +122,7 @@ pawaStartApp(appElement);
 
 ### State Management with `$state`
 
-The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it. `$state` can be global when used outside a component
+The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it (fine-granded) no component re-rendering or diffing. `$state` can be global when used outside a component
 
 ```javascript
 // Create a simple state
@@ -121,25 +137,34 @@ user.value.loggedIn = true; // This is also reactive
 // Persist state to localStorage
 // The state will be saved under the key 'session' and reloaded on page refresh.
 const session = $state({ id: null }, 'session');
+
+// Compute state - must be used inside a component
+// when ever count changes the state update
+const doubleCount=$state(()=>count.value * 2,[count])
+
+//AutoCompute
+// Any function that uses any reactive state for reactive bindings or direcives becomes computed function
+const doubleCount=()=>count.value * 2
 ```
 
 ### Components
 
-Components are the building blocks of your application. In PawaJS, a component is a JavaScript function that returns an HTML template string.
+Components are the building blocks of your application. In PawaJS, a component is a JavaScript function that returns an HTML template string or not.
 
--   **Defining:** Create a function that returns a template.
+-   **Defining:** Create a function that returns a template or not.
 -   **Registering:** Use `RegisterComponent(MyComponent)` to make it available globally. In HTML, you can then use it as `<my-component>`.
 -   **`useInsert`:** To make variables, state, and functions from your component's setup available in its template, pass them in an object to `useInsert()`.
 
 ### Asynchronous Components
 
-PawaJS supports async components (useAsync hook) out of the box. You can define a component as an `async` function, allowing you to perform asynchronous operations (like fetching data) before the component renders.
+PawaJS supports async components ( `useAsync()` hook) out of the box. You can define a component as an `async` function, allowing you to perform asynchronous operations (like fetching data) before the component renders.
 wrap any pawajs hook with $async after any await call
 
 ```javascript
 const UserProfile = async () => {
-    // The component will wait for this promise to resolve before rendering
+    // Async hook store the current component instance for $async to use
     const {$async}=useAsync()
+    // The component will wait for this promise to resolve before rendering
     const data = await fetch('/api/user').then(res => res.json());
     const user = $async(()=>$state(data);)
     $async(()=>useInsert({user}))
@@ -209,16 +234,16 @@ switch conditional rendering.
     Please log in to continue.
 </div>
 ```
-#### `id`
+#### `key`
 re-renders the element/component when the reactivity changes 
 
 ```html
-<user-component id="@{user.value.type}"></user-component>
+<user-component key="user.value.type"></user-component>
 
 ```
 
 #### `is-exit`
-makes pawajs engine to wait before removing the element until the animation is done.
+makes pawajs engine to wait before removing the element until the animation/transition is done.
 
 ```html
 <div if="user.value.loggedIn" class="user-card @{user.value.isActive ? 'active' : 'inactive'}" is-exit>
@@ -247,7 +272,8 @@ For handling DOM events.
 ### Component Props
 
 You can pass data from a parent component to a child component using props. To declare a prop, prefix the attribute with a colon (`:`).
-children are passed by default in pawajs, they are not functional prop
+Children are passed by default in pawajs, they are not functional prop.
+For rest props pass `--` to the element that needs the attributes.
 **Parent Component (`app.js`)**
 ```javascript
 // ...
@@ -255,7 +281,7 @@ const message = $state('This is a message from the parent!');
 useInsert({ message });
 
 return html`
-    <todo-list :title="'My Todo List'" :message="message.value">Children in here</todo-list>
+    <todo-list :title="'My Todo List'" :message="message.value" class="to the rest prop">Children in here</todo-list>
 `;
 ```
 
@@ -266,7 +292,7 @@ export const TodoList = ({ title, message,children }) => {
     useInsert({ title, message });
 
     return html`
-        <div>
+        <div -->
             <h2>@{title()}</h2>
             <p>@{message()}</p>
             ${children}
@@ -299,7 +325,7 @@ useValidateComponent(TodoList, {
 
 ### Component Hooks
 -   `useInsert(object)`: Exposes data and functions from a component's setup to its template.
--   `runEffect(callback, dependencies?)`: Runs a side effect after the component renders, and re-runs it when its dependencies change.
+-   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change.
 -   `useContext(contextObject)` & `setContext()`: A mechanism for providing and consuming data throughout a component tree.
 -   `useRef()`: Creates a reference object that can be attached to a DOM element using the `ref` directive.
 -   `useValidateComponent(Component, rules)`: Defines validation rules for a component's props.

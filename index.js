@@ -10,7 +10,10 @@ import {
     ref,
     documentEvent,
     Switch,
-    exitTransition
+    exitTransition,
+    After,
+    Every,
+    Key
 } from './power.js'
 import { propsValidator, sanitizeTemplate, setPawaDevError, splitAndAdd, pawaWayRemover, checkKeywordsExistence } from './utils.js';
 import PawaComponent from './pawaComponent.js';
@@ -100,6 +103,7 @@ const fullNamePlugin = new Set()
 const externalPlugin = {}
 const externalPluginMap = new Map()
 let pawaAttributes = new Set()
+let primaryDirective = new Set()
 
 const mapsPlugins = {
     compoAfterCall,
@@ -110,7 +114,8 @@ const mapsPlugins = {
     startsWithSet,
     fullNamePlugin,
     externalPlugin,
-    externalPluginMap
+    externalPluginMap,
+    primaryDirective
 }
 export const pluginsMap = () => mapsPlugins
 export const escapePawaAttribute = new Set()
@@ -122,8 +127,8 @@ export const removePlugin = (...pluginName) => {
             pawaAttributes.delete(n)
             delete externalPlugin[n]
             if (externalPluginMap.has(n)) {
-                const extArrar = externalPluginMap.get(n)
-                extArrar.forEach(ex => {
+                const extArray = externalPluginMap.get(n)
+                extArray.forEach(ex => {
                     dependentPawaAttribute.delete(ex)
                 })
             }
@@ -200,7 +205,7 @@ export const PluginSystem = (...func) => {
                         pawaAttributes.add(attrPlugins.fullName)
                         fullNamePlugin.add(attrPlugins.fullName)
                         externalPlugin[attrPlugins.fullName] = attrPlugins?.plugin
-                        if (extPluginArray > 0) externalPluginMap.set(attrPlugins.fullName, extPluginArray)
+                        if (extPluginArray.length > 0) externalPluginMap.set(attrPlugins.fullName, extPluginArray)
                     })
                 } else if (attrPlugins?.startsWith) {
                     if (pawaAttributes.has(attrPlugins.startsWith)) {
@@ -211,7 +216,7 @@ export const PluginSystem = (...func) => {
                         pawaAttributes.add(attrPlugins.startsWith)
                         startsWithSet.add(attrPlugins.startsWith)
                         externalPlugin[attrPlugins.startsWith] = attrPlugins?.plugin
-                        if (extPluginArray > 0) externalPluginMap.set(attrPlugins.startsWith, extPluginArray)
+                        if (extPluginArray.length > 0) externalPluginMap.set(attrPlugins.startsWith, extPluginArray)
                     })
                 }
             })
@@ -285,13 +290,15 @@ export const setPawaAttributes = (...attr) => {
         pawaAttributes.add(att)
     })
 }
-const setDependentAttibute = (...name) => {
+const setPrimaryAttibute = (...name) => {
     name.forEach(att => {
-        dependentPawaAttribute.add(att)
+        primaryDirective.add(att)
     })
 }
+export const getPrimaryDirective=()=>primaryDirective
+setPrimaryAttibute('if', 'else-if', 'for', 'else','switch','case','default','case','key')
 setPawaAttributes('if', 'else-if', 'for', 'else', 'mount',
-    'unmount', 'forKey', 'state-', 'on-', 'out-')
+    'unmount', 'forKey', 'state-', 'on-', 'out-','key')
 export const getDependentAttribute = () => dependentPawaAttribute
 export const getPawaAttributes = () => {
     return pawaAttributes
@@ -859,7 +866,11 @@ const mainAttribute = (el, exp) => {
                 } else {
                     const func = new Function(...keys, `return ${expression}`);
                     isBoolean = func(...values)
-                    return func(...values);
+                    if (typeof isBoolean !== 'boolean') {
+                        return isBoolean
+                    }else{
+                        return ''
+                    }
                 }
             });
 
@@ -968,7 +979,8 @@ const directives = {
     unmount: unMountElement,
     ref: ref,
     switch:Switch,
-    'is-exit':exitTransition
+    key:Key,
+    'is-exit':exitTransition,
 }
 export const useRef = () => {
     return { value: null }
@@ -1028,13 +1040,20 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 directives[attr.name](el, attr, stateContext)
             } else if (attr.name.startsWith('on-')) {
                 event(el, attr, stateContext)
-            } else if (attr.value.includes('@{') && !attr.name.startsWith('resume-attr')) {
+            } else if (attr.value.includes('@{') && !attr.name.startsWith('resume-attr') && attr.name !== 'id') {
                 mainAttribute(el, attr, isName)
             } else if (attr.name.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
             } else if (attr.name.startsWith('out-')) {
                 documentEvent(el, attr)
-            } else if (attr.name.startsWith('resume-c-')) {
+            } 
+             else if (attr.name.startsWith('after-[') && attr.name.endsWith(']')) {
+                After(el, attr)
+            } 
+             else if (attr.name.startsWith('every-[') && attr.name.endsWith(']')) {
+                Every(el, attr)
+            }  
+            else if (attr.name.startsWith('resume-c')) {
                 stopResume.stop = true
                 component(el, true, attr, notRender, stopResume)
             } else if (attr.name.startsWith('resume-attr')) {
@@ -1045,9 +1064,6 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 resumer.resume_text(el, attr, isName)
             } else if (attr.name.startsWith('resume-condition-')) {
                 directives['if'](el, attr, stateContext, true, notRender, stopResume)
-            } else if (attr.name === 'resume-for') {
-            } else if (attr.name.startsWith('resume-switch-')) {
-                directives['switch'](el, attr, stateContext, true, notRender, stopResume)
             } else if (attr.name === 'resume-for') {
                 directives['for'](el, attr, stateContext, true, notRender, stopResume)
             } else if (fullNamePlugin.has(attr.name)) {
@@ -1128,6 +1144,22 @@ export const pawaStartApp = (app, context = {}) => {
     render(app, context)
 }
 
+/**
+ * Tagged template function for syntax highlighting and future tooling support.
+ * Usage: return html`<div>...</div>`
+ */
+export const html = (strings, ...values) => {
+    if (strings.length === 1) return strings[0];
+    let result = "";
+    for (let i = 0; i < strings.length; i++) {
+        result += strings[i];
+        if (i < values.length) {
+            result += values[i];
+        }
+    }
+    return result;
+}
+
 const Pawa = {
     useInsert,
     useContext,
@@ -1137,7 +1169,8 @@ const Pawa = {
     $state,
     pawaStartApp,
     RegisterComponent,
-    runEffect
+    runEffect,
+    html
 }
 
 export default Pawa

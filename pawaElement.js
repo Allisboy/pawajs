@@ -1,6 +1,7 @@
-import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute} from './index.js';
+import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute,} from './index.js';
 import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues,safeEval} from './utils.js';
 import PawaComponent from './pawaComponent.js';
+import { getPrimaryDirective } from './index.js';
 
 
 export class PawaElement {
@@ -177,11 +178,16 @@ export class PawaElement {
     })
   }
   hasForOrIf(){
-    if (this._el.getAttribute('if') || this._el.getAttribute('for') || this._el.getAttribute('chunk') || this._el.getAttribute('script') || this._el.getAttribute('else') || this._el.getAttribute('else-if')) {
-      return true
-    }else{
-      return false
-    }
+    const primary=getPrimaryDirective()
+    let truth=false
+    primary.forEach((att)=>{
+      if(truth) return
+      if(this._attributes.includes(att)){
+        truth=true
+        return
+      }
+      truth=false
+    })
   }
   cache(){
     if (this._el.parentElement && this._el.parentElement?._cacheSetUp) {
@@ -227,7 +233,8 @@ export class PawaElement {
           this._out=true
           this._el.remove()
           if (callback) {
-            callback()
+            console.log(callback)
+            callback?.()
           }
           return true
     }
@@ -283,21 +290,6 @@ export class PawaElement {
         if (slot.tagName === 'TEMPLATE' && slot.getAttribute('prop') && !slot.hasAttribute('js')) {
           this._slots.appendChild(slot)
         }
-        // }else if(slot.tagName === 'TEMPLATE' && slot.getAttribute('prop') && slot.hasAttribute('js')){
-        //   const template=slot.content.textContent
-          
-        //   try{
-        //     const value=safeEval(this._context,`${replaceTemplateOperators(template).trim()}`,this._el,true)
-        //     let func=value()
-        //     console.log(func)
-        //   }catch(error){
-        //     setPawaDevError({
-        //       template:this._template,
-        //       message:`Error while transForming props at Component props: ${slot.getAttribute('prop')}: ${this._template}`,
-        //       error:error
-        //     })
-        //   }
-        // }
       })
       this._componentChildren=this._el.innerHTML
       
@@ -395,7 +387,7 @@ export class PawaComment {
     this._endComment=null
     this._keyRemover=this.keyRemoveElement
     this._resetForKeyElement=this.forKeyResetElement
-    this._deletKey=this.deleteKey
+    this._deleteKey=this.deleteKey
   }
   static Element(element){
     const pawa=new PawaComment(element)
@@ -421,15 +413,15 @@ export class PawaComment {
       return  
     } else {
       if (comment?.nextSibling?.nodeType === 8) {
-        // console.log(comment)
         if(comment.nextSibling?._controlComponent){
           comment.nextSibling._remove()
-        }else{
+                  }else{
           comment.nextSibling.remove() 
         }
            
       } else if (comment.nextSibling.nodeType === 1) {
         if (firstElement) {
+          console.log(callback)
           await comment.nextSibling._remove(callback)
         }  else{
           await comment.nextSibling._remove()

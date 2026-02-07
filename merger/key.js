@@ -14,15 +14,11 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
         if (endComment.parentElement === null) {
             el._deleteEffects()
         }
-        const regex = /@{([^}]*)}/g;
         try {
             let value=attr.value 
             let keyValue
             if (!func) {
-                value = value.replace(regex, (match, exp) => {
-                    func=safeEval(el._context,exp,el)
-                    return '';
-            });
+                    func=safeEval(el._context,attr.value,el)
             }
             const values = getEvalValues(el._context)
             let current
@@ -51,7 +47,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                         Promise.resolve(removePromise).then(()=>{
                             if (comment.nextSibling === endComment && oldChain !== latestChain) {
                                 const newElement=el.cloneNode(true)
-                                 newElement.removeAttribute('id')
+                                 newElement.removeAttribute('key')
                                  oldChain=latestChain
                                  setElement(newElement,latestChain) 
                             }
@@ -64,7 +60,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                         if(oldChain === latestChain)return
                         if (comment.nextSibling === endComment && oldChain !== latestChain) {
                             const newElement=el.cloneNode(true)
-                            newElement.removeAttribute('id')
+                            newElement.removeAttribute('key')
                             oldChain=latestChain
                             setElement(newElement,latestChain) 
                           }
