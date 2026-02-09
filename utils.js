@@ -1,9 +1,6 @@
 
 export const splitAndAdd = str => str.split('-').join('').toUpperCase();
 
-export const findEndComment=(comment)=>{
-  
-}
 export const pawaWayRemover=async (comment,endComment)=>{
   if (!comment?.nextSibling) {
     return
@@ -21,6 +18,10 @@ export const pawaWayRemover=async (comment,endComment)=>{
       }
          
     } else if (comment.nextSibling.nodeType === 1) {
+      if (!comment.nextSibling._remove) {
+        comment.nextSibling.remove()
+        return
+      }
       await comment.nextSibling._remove()   
     }
   }

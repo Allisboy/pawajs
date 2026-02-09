@@ -30,8 +30,6 @@ export class PawaElement {
     this._slots=document.createDocumentFragment()
     this._mainAttribute={}
     this._preRenderAvoid=[]
-    this._lazy=element.tagName ==='IMPORT'?true:false
-    this._await=element.tagName ==='AWAIT'?true:false
     this._running=false
     this._hasForOrIf=this.hasForOrIf
     this._elementContent=element.textContent
@@ -62,7 +60,6 @@ export class PawaElement {
     this._pawaElementComponent=null
     this._componentTerminate=null
     this._cacheSetUp=false
-    this._effectsCache=element.getAttribute('render-inview')?this.effectsCache():null
     this._effectsCarrier=null
     this._pawaElementComponentName=''
     this._reCallEffect=this.reCallEffect
@@ -96,7 +93,6 @@ export class PawaElement {
     this.setProps()
     this.setAttri()
     this.findPawaAttribute()
-    this.isPawaElementComponent()
   }
   
   static Element(element,context){
@@ -110,20 +106,6 @@ export class PawaElement {
     this._resetEffects.forEach((call)=>{
       call()
     })
-  }
-  setPawaAttr(){
-    const isResume=this._el.hasAttribute('pawa-resume')
-    if(isResume){
-      const pawaAttr=this._el.getAttribute('pawa-resume')
-      const array=pawaAttr.split(';')
-      array.forEach(value =>{
-        if(!this._el.hasAttribute(value)) return
-        this._attributes.push({name:value,value:this._el.getAttribute(value)})
-      })
-      this._el.removeAttribute('pawa-resume')
-    }else{
-      this._attributes=Array.from(this._el.attributes)
-    }
   }
   findPawaAttribute(){
     Array.from(this._el.attributes).forEach((attr) => {
@@ -145,14 +127,6 @@ export class PawaElement {
   }
   setUnMounts(func){
     this._unMountFunctions.push(func)
-  }
-  isPawaElementComponent(){
-    const compo=this._el.getAttribute('pawa-component')
-    if (compo && components.get(compo)) {
-      this._isElementComponent=true
-      this._pawaElementComponentName=compo
-      this._pawaElementComponent=new PawaComponent(components.get(compo))
-    }
   }
   getNode(){
       const nodeDiv=document.createElement('div')
@@ -188,14 +162,6 @@ export class PawaElement {
       }
       truth=false
     })
-  }
-  cache(){
-    if (this._el.parentElement && this._el.parentElement?._cacheSetUp) {
-      this._effectsCache=this._el.parentElement._effectsCache()
-    }
-  }
-  effectsCache(){
-    return this._el
   } 
   reCheckStaticContext(){ 
     const context=this._context

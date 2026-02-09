@@ -4,12 +4,12 @@ import { PawaComment, PawaElement } from '../pawaElement.js';
 import { processNode, pawaWayRemover, safeEval, getEvalValues, setPawaDevError, checkKeywordsExistence } from '../utils.js';
 
 export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes, resume,
-    { comment, endComment, unique, elementArray, insertIndex }) => {
+    { comment, endComment, unique, elementArray, insertIndex,keyOrders }) => {
     let firstEnter
     let func
     let once=false
     let promised
-    const keyOrder=new Map()
+    const keyOrder= keyOrders || new Map()
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -192,19 +192,16 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
             } else {
                 if(!resume)return
                 if(once)return
-                let keyIndex = 0
                 elementArray.forEach((keyComment) => {
                     if(keyComment.nextElementSibling === null) return
                     const context = el._context
-                    keyComment._index = keyIndex
-                    keyOrder.set(keyIndex,{comment:keyComment})
                     const itemContext = {
                         [arrayItem]: array[keyComment._index],
                         [indexes]: keyComment._index,
                         ...context
                     }
                     render(keyComment.nextElementSibling, itemContext,{notRender:false,index:null})
-                    keyIndex++
+                
                 })
                 once=true
             }

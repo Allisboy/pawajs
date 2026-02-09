@@ -990,6 +990,11 @@ export const render = (el, contexts = {}, notRender, isName) => {
     if (el.tagName === 'SCRIPT') {
         return false
     }
+     if (el.tagName === 'TITLE') {
+        document.title=el.textContent
+        el.remove()
+    return
+  }
     const context = {
         ...contexts
     }
@@ -1035,36 +1040,41 @@ export const render = (el, contexts = {}, notRender, isName) => {
         const number = { notRender: null }
         el._attributes.forEach(attr => {
 
-            if (stopResume.stop) return
+            if (stopResume.stop || el._hasRun) return
             if (directives[attr.name]) {
                 directives[attr.name](el, attr, stateContext)
             } else if (attr.name.startsWith('on-')) {
                 event(el, attr, stateContext)
-            } else if (attr.value.includes('@{') && !attr.name.startsWith('resume-attr') && attr.name !== 'id') {
+            } else if (attr.value.includes('@{') && !attr.name.startsWith('resume-attr')) {
                 mainAttribute(el, attr, isName)
             } else if (attr.name.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
             } else if (attr.name.startsWith('out-')) {
                 documentEvent(el, attr)
-            } 
-             else if (attr.name.startsWith('after-[') && attr.name.endsWith(']')) {
+            } else if (attr.name.startsWith('after-[') && attr.name.endsWith(']')) {
                 After(el, attr)
             } 
              else if (attr.name.startsWith('every-[') && attr.name.endsWith(']')) {
                 Every(el, attr)
-            }  
-            else if (attr.name.startsWith('resume-c')) {
+            } 
+            else if (attr.name.startsWith('c-c-')) {
                 stopResume.stop = true
+                
                 component(el, true, attr, notRender, stopResume)
-            } else if (attr.name.startsWith('resume-attr')) {
+            } else if (attr.name.startsWith('c-at-')) {
                 resumer.resume_attribute?.(el, attr, notRender)
-            } else if (attr.name.startsWith('resume-state-')) {
+            } else if (attr.name.startsWith('c-$-')) {
                 resumer.resume_state?.(el, attr, notRender)
-            } else if (attr.name.startsWith('resume-text')) {
+            } else if (attr.name.startsWith('c-t')) {
                 resumer.resume_text(el, attr, isName)
-            } else if (attr.name.startsWith('resume-condition-')) {
+            } else if (attr.name.startsWith('c-if-')) {
+                // console.log('resume -if',el,el._attributes)
                 directives['if'](el, attr, stateContext, true, notRender, stopResume)
-            } else if (attr.name === 'resume-for') {
+            } else if (attr.name === 'c-for') {
+                directives['for'](el, attr, stateContext, true, notRender, stopResume)
+            } else if (attr.name.startsWith('c-sw-')) {
+                directives['switch'](el, attr, stateContext, true, notRender, stopResume)
+            } else if (attr.name === 'c-for') {
                 directives['for'](el, attr, stateContext, true, notRender, stopResume)
             } else if (fullNamePlugin.has(attr.name)) {
                 if (externalPlugin[attr.name]) {
@@ -1128,16 +1138,10 @@ export const render = (el, contexts = {}, notRender, isName) => {
             render(child, context, number, isName)
         })
         el._callMount()
-        if (el._pawaElementComponentName) {
-            formerStateContext = stateContext._formerContext
-            stateContext._hasRun = true
-            if (stateContext._transportContext) {
-                let contextId = stateContext._transportContext
-                delete pawaContext[contextId]
-            }
-            stateContext = formerStateContext
-        }
-    }
+       if (el.hasAttribute('p:c')) {
+        el.removeAttribute('p:c')
+       }
+}
 }
 
 export const pawaStartApp = (app, context = {}) => {

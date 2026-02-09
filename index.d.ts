@@ -193,14 +193,37 @@ export function setContext<T = any>(): ContextHandle<T>;
  */
 export function useContext<T = any>(context: ContextHandle<T>): T;
 
-export function useInnerContext(): any;
+/**
+ * Gets the context from the parent Element 
+ * @template T
+ * @returns {T}
+ */
+export function useInnerContext<T=any>(): T;
 
-export function accessChild(): any;
-
+/**
+ * Tells pawa-ssr to serialize the children prop.
+ * Then pawajs adds it into the component unpon re-execution
+ * @returns {()=>void}
+ */
+export function accessChild(): (()=>void);
+/**
+ * Tells pawa-ssr to serialized data from useInsert.
+ * Then pawajs continuity model de-serializes it and adds to the rendering context
+ * @returns {void}
+ * Note: meant for server-only component
+ */
 export function useServer(): (() => void) | undefined;
 
-export function useAsync(): { $async: <T>(callback: () => Promise<T>) => Promise<T> };
+/**
+ * Stores the component instance into the returned $async hook.
+ * Used in async component.
+ * Must be called before any await call
+ */
+export function useAsync(): { $async: <T>(callback: () => T) => T };
 
+/**
+ * Returns TRUE when pawajs is in continous rendering mode from ssr
+ */
 export function isResume(): boolean;
 
 /**

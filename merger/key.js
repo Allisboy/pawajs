@@ -1,15 +1,18 @@
 import { render, $state, keepContext,restoreContext} from '../index.js';
 import { pawaWayRemover, safeEval, getEvalValues, setPawaDevError, checkKeywordsExistence } from '../utils.js';
 
-export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,children,chained,chainMap})=>{
+export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,children,old})=>{
     let func
     let removePromise=null
     let promised=false
     let firstEnter = false
     const parent = endComment.parentElement
-    let latestChain
-    let oldChain
-    
+    let latestState
+    let oldsate
+    let once=false
+    if (resume) {
+        oldsate=old
+    }
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -18,7 +21,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
             let value=attr.value 
             let keyValue
             if (!func) {
-                    func=safeEval(el._context,attr.value,el)
+                func=safeEval(el._context,attr.value,el)
             }
             const values = getEvalValues(el._context)
             let current
@@ -33,43 +36,14 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                     stateContext._hasRun = false
                     keepContext(stateContext)
                 }
-                comment.data=`key ${exp}`
+                comment.data=`key ${latestState}`
+                endComment.data=`/ key ${latestState}`
                 parent.insertBefore(newElement, endComment)
                 render(newElement, el._context)
                 stateContext._hasRun = true
             }
-                    latestChain=func(...values) 
-                    if(oldChain === latestChain && firstEnter)return 
-                    if (comment.nextSibling !== endComment && oldChain !== latestChain) {
-                        removePromise=pawaWayRemover(comment,endComment)
-                    }
-                    if (oldChain !== latestChain && firstEnter) {
-                        Promise.resolve(removePromise).then(()=>{
-                            if (comment.nextSibling === endComment && oldChain !== latestChain) {
-                                const newElement=el.cloneNode(true)
-                                 newElement.removeAttribute('key')
-                                 oldChain=latestChain
-                                 setElement(newElement,latestChain) 
-                            }
-                            promised=false
-                        })
-                        promised=true
-                        
-                    }
-                    if(!firstEnter && !resume){
-                        if(oldChain === latestChain)return
-                        if (comment.nextSibling === endComment && oldChain !== latestChain) {
-                            const newElement=el.cloneNode(true)
-                            newElement.removeAttribute('key')
-                            oldChain=latestChain
-                            setElement(newElement,latestChain) 
-                          }
-
-                    //         promised=false
-                       }
-                        
-                        if(firstEnter === false && resume && current){
-                            el.removeAttribute(attr.name)
+            latestState=func(...values) 
+            if( resume && !once && latestState === oldsate){
                          if (stateContext._hasRun) {
                         stateContext._hasRun = false
                         keepContext(stateContext)
@@ -81,7 +55,37 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                               render(value,el._context,number)
                             })
                         stateContext._hasRun=true
+                        once=true
                 }
+                    // if(oldsate === latestState && firstEnter)return 
+                    if (comment.nextSibling !== endComment && oldsate !== latestState) {
+                        removePromise=pawaWayRemover(comment,endComment)
+                    }
+                    if (oldsate !== latestState && firstEnter) {
+                        Promise.resolve(removePromise).then(()=>{
+                            if (comment.nextSibling === endComment && oldsate !== latestState) {
+                                const newElement=el.cloneNode(true)
+                                 newElement.removeAttribute('key')
+                                 oldsate=latestState
+                                 setElement(newElement,latestState) 
+                            }
+                            promised=false
+                        })
+                        promised=true
+                        
+                    }
+                    if(!firstEnter && !resume){
+                        if(oldsate === latestState)return
+                        if (comment.nextSibling === endComment && oldsate !== latestState) {
+                            const newElement=el.cloneNode(true)
+                            newElement.removeAttribute('key')
+                            oldsate=latestState
+                            setElement(newElement,latestState) 
+                          }
+
+                    //         promised=false
+                       }
+                        
             
          firstEnter=true
             } catch (error) {

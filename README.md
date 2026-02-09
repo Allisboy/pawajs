@@ -122,7 +122,20 @@ pawaStartApp(appElement);
 
 ### State Management with `$state`
 
-The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it (fine-granded) no component re-rendering or diffing. `$state` can be global when used outside a component
+The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it (fine-granded) no component re-rendering or diffing. `$state` can be global when used outside a component. Also inline state in the html or template `state-*="any js types"`
+
+```html
+    <!--- number-->
+    <div state-count="0">@{count.value}<div>
+    <!--- string-->
+    <div state-name="'PAWAJS'">@{name.value}<div>
+    <!--- object-->
+    <div state-object="{name:'pawajs'}">@{object.value.name}<div>
+    <!--- boolean-->
+    <div state-login="false">@{login.value? 'Welcome back!':'Please login'}<div>
+    <!--- array-->
+    <span state-splitname="['P','A','W','A','J','S']" for="item in splitname.value">@{item}<div>
+```
 
 ```javascript
 // Create a simple state
@@ -325,7 +338,7 @@ useValidateComponent(TodoList, {
 
 ### Component Hooks
 -   `useInsert(object)`: Exposes data and functions from a component's setup to its template.
--   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change.
+-   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change .
 -   `useContext(contextObject)` & `setContext()`: A mechanism for providing and consuming data throughout a component tree.
 -   `useRef()`: Creates a reference object that can be attached to a DOM element using the `ref` directive.
 -   `useValidateComponent(Component, rules)`: Defines validation rules for a component's props.

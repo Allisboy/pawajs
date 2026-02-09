@@ -57,7 +57,7 @@ export const If = (el, attr, stateContext,resume=false,notRender,stopResume) => 
             let comment
             let endComment
             let dataComment
-            let id=attr.name.slice(17)
+            let id=attr.name.slice(5)
             const children=[]
             const setComment=(c)=>comment=c
             const setEndComment=(c)=>endComment=c
@@ -120,7 +120,7 @@ export const Switch = (el, attr, stateContext,resume=false,notRender,stopResume)
             let comment
             let endComment
             let dataComment
-            let id=attr.name.slice(14)
+            let id=attr.name.slice(5)
             const children=[]
             const setComment=(c)=>comment=c
             const setEndComment=(c)=>endComment=c
@@ -395,6 +395,7 @@ export const After=(el,attr)=>{
     if (el._running) return
     const getTime=attr.name.match(/\[(.*?)\]/)[1]
     const keys = Object.keys(el._context);
+    el.removeAttribute(attr.name)
     const resolvePath = (path, obj) => {
         return path.split('.').reduce((acc, key) => acc?.[key], obj);
     };              
@@ -416,6 +417,7 @@ export const After=(el,attr)=>{
 export const Every=(el,attr)=>{
     if (el._running) return
     const getTime=attr.name.match(/\[(.*?)\]/)[1]
+    el.removeAttribute(attr.name)
     const keys = Object.keys(el._context);
     const resolvePath = (path, obj) => {
         return path.split('.').reduce((acc, key) => acc?.[key], obj);
