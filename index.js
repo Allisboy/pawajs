@@ -298,7 +298,7 @@ const setPrimaryAttibute = (...name) => {
 export const getPrimaryDirective=()=>primaryDirective
 setPrimaryAttibute('if', 'else-if', 'for', 'else','switch','case','default','case','key')
 setPawaAttributes('if', 'else-if', 'for', 'else', 'mount',
-    'unmount', 'forKey', 'state-', 'on-', 'out-','key')
+    'unmount', 'forKey', 'state-', 'on-', 'out-','key','switch','case','default')
 export const getDependentAttribute = () => dependentPawaAttribute
 export const getPawaAttributes = () => {
     return pawaAttributes
@@ -358,7 +358,7 @@ export const RegisterComponent = (...args) => {
  * @param {Array|null|object|number} deps 
  * Array - for state dependency.
  * 
- * object- for any state used inside of the callback but under the use of element or component.
+ * object- for any state used inside of the callback but under the use of element or component. this is read-only state not for state updating
  * 
  * Number - before mount hook.
  * 
@@ -960,12 +960,12 @@ const textContentHandler = (el, isName) => {
     }, el);
 };
 
-const template = (el, resume = false, notRender, attr) => {
+const template = (el,notRender, attr) => {
     if (el._running) {
         return
     }
     el._running = true
-    templates(el)
+    templates(el,notRender)
 }
 
 const directives = {
@@ -1045,7 +1045,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 directives[attr.name](el, attr, stateContext)
             } else if (attr.name.startsWith('on-')) {
                 event(el, attr, stateContext)
-            } else if (attr.value.includes('@{') && !attr.name.startsWith('resume-attr')) {
+            } else if (attr.value.includes('@{') && !attr.name.startsWith('c-at-')) {
                 mainAttribute(el, attr, isName)
             } else if (attr.name.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
@@ -1072,7 +1072,10 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 directives['if'](el, attr, stateContext, true, notRender, stopResume)
             } else if (attr.name === 'c-for') {
                 directives['for'](el, attr, stateContext, true, notRender, stopResume)
-            } else if (attr.name.startsWith('c-sw-')) {
+            }else if (attr.name.startsWith('c-key-')) {
+                directives['key'](el, attr, stateContext, true, notRender, stopResume)
+            }  
+            else if (attr.name.startsWith('c-sw-')) {
                 directives['switch'](el, attr, stateContext, true, notRender, stopResume)
             } else if (attr.name === 'c-for') {
                 directives['for'](el, attr, stateContext, true, notRender, stopResume)
@@ -1114,7 +1117,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
         return
     }
     if (el._elementType === 'template' && !el._avoidPawaRender) {
-        template(el)
+        template(el,notRender)
         return
     }
 
@@ -1134,7 +1137,6 @@ export const render = (el, contexts = {}, notRender, isName) => {
         const number = { notRender: null, index: null }
         Array.from(el.children).forEach((child, index) => {
             number.index = index
-            if (number.notRender && index <= number.notRender) return
             render(child, context, number, isName)
         })
         el._callMount()
@@ -1143,6 +1145,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
        }
 }
 }
+
 
 export const pawaStartApp = (app, context = {}) => {
     render(app, context)

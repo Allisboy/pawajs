@@ -1,7 +1,6 @@
-import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute,} from './index.js';
+import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute} from './index.js';
 import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues,safeEval} from './utils.js';
 import PawaComponent from './pawaComponent.js';
-import { getPrimaryDirective } from './index.js';
 
 
 export class PawaElement {
@@ -107,6 +106,19 @@ export class PawaElement {
       call()
     })
   }
+  setPawaAttr(){
+    const isResume=this._el.hasAttribute('p:c')
+    if(isResume){
+      const pawaAttr=this._el.getAttribute('p:c')
+      const array=pawaAttr.split(';')
+      array.forEach(value =>{
+        if(!this._el.hasAttribute(value)) return
+        this._attributes.push({name:value,value:this._el.getAttribute(value)})
+      })
+    }else{
+      this._attributes=Array.from(this._el.attributes)
+    }
+  }
   findPawaAttribute(){
     Array.from(this._el.attributes).forEach((attr) => {
       const pawaAttribute=getPawaAttributes()
@@ -199,8 +211,7 @@ export class PawaElement {
           this._out=true
           this._el.remove()
           if (callback) {
-            console.log(callback)
-            callback?.()
+            callback()
           }
           return true
     }
@@ -353,7 +364,7 @@ export class PawaComment {
     this._endComment=null
     this._keyRemover=this.keyRemoveElement
     this._resetForKeyElement=this.forKeyResetElement
-    this._deleteKey=this.deleteKey
+    this._deletKey=this.deleteKey
   }
   static Element(element){
     const pawa=new PawaComment(element)
@@ -379,15 +390,15 @@ export class PawaComment {
       return  
     } else {
       if (comment?.nextSibling?.nodeType === 8) {
+        // console.log(comment)
         if(comment.nextSibling?._controlComponent){
           comment.nextSibling._remove()
-                  }else{
+        }else{
           comment.nextSibling.remove() 
         }
            
       } else if (comment.nextSibling.nodeType === 1) {
         if (firstElement) {
-          console.log(callback)
           await comment.nextSibling._remove(callback)
         }  else{
           await comment.nextSibling._remove()

@@ -10,6 +10,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     el.replaceWith(endComment)
     endComment.parentElement.insertBefore(comment,endComment)
     el._underControl=comment
+    comment._endComment=endComment
     comment._componentElement=el
     comment._controlComponent=true
         const props={}
@@ -135,7 +136,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
       const childInsert=()=>{
       el._component?._hook?.beforeMount?.forEach((bfm) => {
-     const result= bfm()
+     const result= bfm(comment)
      if (typeof result === 'function') {
        el._unMountFunctions.push(result)
      }
@@ -176,7 +177,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
         el._component?._hook?.reactiveEffect.forEach((hook) => {
           if(hook?.done) return
           hook.done=true
-          const effect=hook.effect()
+          const effect=hook.effect(comment)
           if (hook.deps?.component) {
             createEffect(() => {
               return effect()
@@ -190,7 +191,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
       el._MountFunctions.forEach((func) => {
         func.done=true
-        const result=func()
+        const result=func(comment)
         if (typeof result === 'function') {
           el._unMountFunctions.push(result)
         }

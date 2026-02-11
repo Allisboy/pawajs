@@ -235,7 +235,7 @@ export const For = (el, attr, stateContext,resume=false,notRender,stopResume) =>
         stopResume.stop=true
             let comment
             let endComment
-            let dataComment
+            let dataElement
             let id=attr.value
             const children=[]
             const setComment=(c)=>comment=c
@@ -244,13 +244,14 @@ export const For = (el, attr, stateContext,resume=false,notRender,stopResume) =>
             getEndComment(comment,setEndComment,id,children,'isFor')
             const numberIfChildren=notRender.index + children.length - 1
       notRender.notRender=numberIfChildren
-            dataComment=comment.nextSibling
+            dataElement=comment.nextSibling
             el.removeAttribute(attr.name)
-            dataComment.remove()
-            resumer.resume_for?.(el,attr,stateContext,{comment,endComment,id,children,dataComment})
+            dataElement.remove()
+            resumer.resume_for?.(el,attr,stateContext,{comment,endComment,id,children,dataElement})
     }
     
 }
+
 
 export const ref = (el, attr) => {
     el._checkStatic() 

@@ -9,7 +9,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
     let func
     let once=false
     let promised
-    const keyOrder= keyOrders || new Map()
+    const keyOrder=keyOrders || new Map()
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -71,7 +71,12 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                         keyOrder.delete(keyComment._index)
                         const promise = new Promise(async(resolve) => {
                             await pawaWayRemover(keyComment,keyComment._endComment)
-                            keyComment._deleteKey()
+                            if (!keyComment._deleteKey){
+                                keyComment.remove()
+                                keyComment._endComment.remove()
+                            }else{
+                                keyComment._deleteKey() 
+                            }
                             resolve(true)
                         })
                         removeElement.push(promise)
@@ -201,7 +206,6 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                         ...context
                     }
                     render(keyComment.nextElementSibling, itemContext,{notRender:false,index:null})
-                
                 })
                 once=true
             }
