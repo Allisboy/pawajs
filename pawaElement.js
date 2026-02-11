@@ -1,4 +1,4 @@
-import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute} from './index.js';
+import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute,getPrimaryDirectives } from './index.js';
 import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues,safeEval} from './utils.js';
 import PawaComponent from './pawaComponent.js';
 
@@ -163,8 +163,9 @@ export class PawaElement {
         this._attr[attr.name]=attr.value
     })
   }
+  
   hasForOrIf(){
-    const primary=getPrimaryDirective()
+    const primary=getPrimaryDirectives()
     let truth=false
     primary.forEach((att)=>{
       if(truth) return

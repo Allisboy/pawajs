@@ -29,7 +29,7 @@ export const setErrorCALLER = (callback) => {
 const errorCaller = (message) => {
 
 }
-const client = !isServer()
+const client = isServer() === false
 const serverInstance = getServerInstance()
 if (client) {
     window.__pawaDev = {
@@ -200,7 +200,7 @@ export const PluginSystem = (...func) => {
                         console.warn(`attribute plugin already exist ${attrPlugins.fullName}`)
                         return
                     }
-                    // console.log(attrPlugins)
+                    
                     applyMode(attrPlugins?.mode, () => {
                         pawaAttributes.add(attrPlugins.fullName)
                         fullNamePlugin.add(attrPlugins.fullName)
@@ -295,7 +295,9 @@ const setPrimaryAttibute = (...name) => {
         primaryDirective.add(att)
     })
 }
-export const getPrimaryDirective=()=>primaryDirective
+
+export const getPrimaryDirectives=()=>primaryDirective
+
 setPrimaryAttibute('if', 'else-if', 'for', 'else','switch','case','default','case','key')
 setPawaAttributes('if', 'else-if', 'for', 'else', 'mount',
     'unmount', 'forKey', 'state-', 'on-', 'out-','key','switch','case','default')
@@ -546,7 +548,6 @@ export const useInsert = (obj = {}) => {
         }
         Object.assign(stateContext._insert, obj)
     } else {
-        // console.log(serverInstance.useInsert)
         const res = serverInstance.useInsert(obj)
     }
 }
@@ -1068,7 +1069,6 @@ export const render = (el, contexts = {}, notRender, isName) => {
             } else if (attr.name.startsWith('c-t')) {
                 resumer.resume_text(el, attr, isName)
             } else if (attr.name.startsWith('c-if-')) {
-                // console.log('resume -if',el,el._attributes)
                 directives['if'](el, attr, stateContext, true, notRender, stopResume)
             } else if (attr.name === 'c-for') {
                 directives['for'](el, attr, stateContext, true, notRender, stopResume)
