@@ -244,7 +244,7 @@ export const For = (el, attr, stateContext,resume=false,notRender,stopResume) =>
             getEndComment(comment,setEndComment,id,children,'isFor')
             const numberIfChildren=notRender.index + children.length - 1
       notRender.notRender=numberIfChildren
-            dataElement=comment.nextSibling
+            dataElement=document.querySelector(`[p\\:store-for="${id}"]`);
             el.removeAttribute(attr.name)
             dataElement.remove()
             resumer.resume_for?.(el,attr,stateContext,{comment,endComment,id,children,dataElement})

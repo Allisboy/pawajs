@@ -14,8 +14,6 @@ export const resumer={
  */
 export const setResumer=(resume)=>{
     for(const [key,value] of Object.entries(resume)){
-        if(resumer[key] === null && resumer[key] !== undefined){
             resumer[key]=value
-        }
     }
 }

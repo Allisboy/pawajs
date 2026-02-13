@@ -40,7 +40,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                         [indexes]: index,
                         ...context
                     }
-                    const newElement = el._attrElement('for')
+                    const newElement = el._attrElement('for-each')
                     newElement.setAttribute('data-for-index', index)
                     processNode(newElement, itemContext)
                     div.appendChild(newElement)
@@ -167,7 +167,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                         [indexes]: index,
                         ...context
                     }
-                    const newElement = el._attrElement('for')
+                    const newElement = el._attrElement('for-each')
                     const keyComment = document.createComment(`key=${newElement.getAttribute('for-key') || index}`)
                     const endKeyComment = document.createComment('end key')
                     PawaComment.Element(keyComment)
@@ -197,6 +197,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
             } else {
                 if(!resume)return
                 if(once)return
+                const number={notRender:null,index:null}
                 elementArray.forEach((keyComment) => {
                     if(keyComment.nextElementSibling === null) return
                     const context = el._context

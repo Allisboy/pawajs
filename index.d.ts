@@ -1,3 +1,4 @@
+
 export interface PawaElement extends HTMLElement {
     _running: boolean;
     _context: any;
@@ -75,6 +76,42 @@ export interface PawaElement extends HTMLElement {
     setProps(): void;
 }
 
+export interface PawaComment extends Comment {
+    _index: number | null;
+    _el: Comment;
+    _setCoveringElement: (el: any) => void;
+    _data: Record<string, any>;
+    _terminateEffects: Set<Function>;
+    _run: any;
+    _coveringElement: any;
+    _setData: (obj: any) => void;
+    _removeSiblings: (endComment: any) => void;
+    _controlComponent: boolean;
+    _componentTerminate: Function | null;
+    _componentElement: any;
+    _setComponentOut: any;
+    _deleteEffects: () => void;
+    _remove: () => void;
+    _terminateByComponent: (endComment: any) => void;
+    _forKey: string | null;
+    _forIndex: any;
+    _setKey: (arg: any) => void;
+    _endComment: Comment | null;
+    _keyRemover: (callback?: Function, firstElement?: boolean) => Promise<void>;
+    _resetForKeyElement: () => DocumentFragment;
+    _deletKey: () => void;
+    forKeyResetElement(): DocumentFragment;
+    keyRemoveElement(callback?: Function, firstElement?: boolean): Promise<void>;
+    deleteKey(): void;
+    setForKey(arg: any): void;
+    terminateEffects(): void;
+    setCoveringElement(el: any): void;
+    setData(obj: any): void;
+    terminate(endComment: any): void;
+    remove(): void;
+    removeSiblings(endComment: any): void;
+}
+
 export interface AttriPlugin {
     startsWith?: string;
     fullName?: string;
@@ -149,6 +186,8 @@ export function getDependentAttribute(): Set<string>;
 
 export function getPawaAttributes(): Set<string>;
 
+export function getPrimaryDirectives(): Set<string>;
+
 export function setError(params: { error: any }): void;
 
 /**
@@ -159,10 +198,15 @@ export function RegisterComponent(...args: (string | Function)[]): void;
 
 /**
  * Runs a side effect or lifecycle hook.
- * @param {() => void | (() => void)} callback - Effect function, optionally returning cleanup.
+ * @param {(comment:PawaComment) => void | (() => void)} callback - Effect function,comment for component hacking and optionally returning cleanup .
  * @param {any[] | object | number | null} [deps] - Dependencies or hook type (null=mount).
+ * # number - beforemount 
+ * # null - onMount
+ * # array[...deps] - dependency reactive
+ * # object<{component:true}|any element from ref> - read alone effect tied to either the component or element
  */
-export function runEffect(callback: () => void | (() => void), deps?: any[] | object | number | null): void;
+export function runEffect(callback: (comment:PawaComment) => void | (() => void), deps?: any[] | object | number | null): void;
+
 
 export interface PropValidation {
     strict?: boolean;
@@ -203,16 +247,18 @@ export function useInnerContext<T=any>(): T;
 /**
  * Tells pawa-ssr to serialize the children prop.
  * Then pawajs adds it into the component unpon re-execution
- * @returns {()=>void}
- */
-export function accessChild(): (()=>void);
-/**
- * Tells pawa-ssr to serialized data from useInsert.
- * Then pawajs continuity model de-serializes it and adds to the rendering context
  * @returns {void}
- * Note: meant for server-only component
  */
-export function useServer(): (() => void) | undefined;
+export function accessChild(): void;
+/**
+ * Tells pawa-ssr to serialized data.
+ * Then pawajs continuity model de-serializes it and adds to the rendering context or getServerData hook
+ * @returns {{setServerData:(data:object)=>void,getServerData:()=>any}}
+ */
+export function useServer<T = Record<string, any>>(): {
+    setServerData: (data: T) => void;
+    getServerData: () => T;
+};
 
 /**
  * Stores the component instance into the returned $async hook.

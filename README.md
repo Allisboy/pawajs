@@ -11,11 +11,11 @@ PawaJS is a JavaScript library designed for building dynamic user interfaces. It
 
 ## Features
 
--   **Declarative Rendering:** Use a clean, HTML-based template syntax with powerful directives (`if`, `for`, `on-event`, etc.) to describe your UI.
+-   **Declarative Rendering:** Use a clean, HTML-based template syntax with powerful directives (`if`, `for-each`, `on-event`, etc.) to describe your UI.
 -   **Reactive State Management:** Effortlessly create reactive state that automatically updates the DOM when it changes using the `$state` utility.
 -   **Component-Based Architecture:** Build encapsulated components that manage their own state, making your code more reusable and maintainable.
 -   **Async Components:** First-class support for asynchronous components, allowing you to fetch data directly within your component definition.
--   **Efficient List Rendering:** Render lists of data with the `for` directive, including support for keyed updates for optimal performance.
+-   **Efficient List Rendering:** Render lists of data with the `for-each` directive, including support for keyed updates for optimal performance.
 -   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
 -   **Context API:** Pass data through the component tree without having to pass props down manually at every level.
 -   **Server-Side Rendering (SSR) Isomorphic architecture:** PawaJS is built with SSR in mind, featuring a "resuming" mechanism to efficiently continue server-rendered HTML on the client.
@@ -34,10 +34,10 @@ CDN
  
 ```html
     <head>
-        <script type="module" href="https://cdn.jsdelivr.net/npm/pawajs@1.2.0/cdn/index.js"></script>
-    </head>
+        </head>
     <body>
         <div id="app"></div>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/pawajs@1.2.0/cdn/index.js"></script>
         <script type="module">
             window.$pawa.pawaStartApp(document.getElementById('app'));
         </script>
@@ -263,12 +263,12 @@ makes pawajs engine to wait before removing the element until the animation/tran
     <input value="@{user.value.name}" on-input="user.value.value = e.target.value">
 </div>
 ```
-#### `for`
+#### `for-each`
 For rendering lists from an array. Use `for-key` to give each element a unique identity, which helps PawaJS optimize rendering.
 
 ```html
 <ul>
-    <li for="todo, i in todos.value" for-key="{{todo.id}}">
+    <li for-each="todo, i in todos.value" for-key="{{todo.id}}">
         <span>@{i + 1}. @{todo.text}</span>
     </li>
 </ul>
@@ -342,6 +342,7 @@ useValidateComponent(TodoList, {
 -   `useContext(contextObject)` & `setContext()`: A mechanism for providing and consuming data throughout a component tree.
 -   `useRef()`: Creates a reference object that can be attached to a DOM element using the `ref` directive.
 -   `useValidateComponent(Component, rules)`: Defines validation rules for a component's props.
+-   `useServer()`: Returns `{ setServerData, getServerData }` for handling server-side data serialization and client-side retrieval in SSR applications.
 
 ---
 

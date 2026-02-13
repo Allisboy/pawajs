@@ -1,6 +1,7 @@
 import {propsValidator, setPawaDevError, pawaWayRemover, checkKeywordsExistence, sanitizeTemplate } from '../utils.js';
 import {PawaElement,PawaComment} from '../pawaElement.js';
 import {keepContext,render} from '../index.js'
+import {createEffect} from '../reactive.js'
 export const normal_component=(el,stateContext,setStateContext,mapsPlugin,formerStateContext,pawaContext,stateWatch)=>{
     const compoBeforeCall=mapsPlugin.compoBeforeCall
     const compoAfterCall=mapsPlugin.compoAfterCall

@@ -271,6 +271,7 @@ let stateContext = {
     _transportContext: {},
     _reactiveProps: {},
     _template: '',
+    _serializedData:{},
     _static: [],
 }
 
@@ -298,8 +299,8 @@ const setPrimaryAttibute = (...name) => {
 
 export const getPrimaryDirectives=()=>primaryDirective
 
-setPrimaryAttibute('if', 'else-if', 'for', 'else','switch','case','default','case','key')
-setPawaAttributes('if', 'else-if', 'for', 'else', 'mount',
+setPrimaryAttibute('if', 'else-if', 'for-each', 'else','switch','case','default','case','key')
+setPawaAttributes('if', 'else-if', 'for-each', 'else', 'mount',
     'unmount', 'forKey', 'state-', 'on-', 'out-','key','switch','case','default')
 export const getDependentAttribute = () => dependentPawaAttribute
 export const getPawaAttributes = () => {
@@ -494,10 +495,26 @@ export const accessChild = () => {
             return serverInstance.accessChild?.()
         }
     }
-    /**@returns {()=>void} - let's component serialized useInsert data on server*/
+    /**@returns {()=>{getServerData:()=>any,setServerData:(data:object)=>void}} - let's component serialized data on server*/
 export const useServer = () => {
     if (client) {
-        return
+        if (stateContext && stateContext._hasRun === false) {
+            const component=stateContext._template
+             const data=stateContext._serializedData
+             /**
+              * Meant to ne used on server rendering
+              */
+             const setServerData=(data={})=>{
+                console.warn( `meant to be used on server-only at ${component}`)
+             }
+             /**
+              * Get serialized data from server during pawajs continuity
+              */
+             const getServerData=()=>data
+             return {setServerData,getServerData}
+        }else{
+            return {data:null}
+        }
     } else {
         return serverInstance.useServer?.()
     }
@@ -583,6 +600,7 @@ export const setStateContext = (context) => {
     }
     stateContext._transportContext = {}
     stateContext._static = []
+    stateContext._serializedData={}
     stateContext._formerContext = formerStateContext
     stateContext._reactiveProps = {}
     stateContext._template = ''
@@ -843,8 +861,7 @@ const mainAttribute = (el, exp) => {
     }
     attrMap.set(exp.name, exp.value);
     el._preRenderAvoid.push(exp.name)
-    const removeAttribute = new Set()
-    removeAttribute.add('disabled')
+    const booleanAttributes = new Set(['checked', 'selected', 'disabled', 'readonly', 'required', 'multiple']);
     el._mainAttribute[exp.name] = exp.value
     el._checkStatic()
     let enter=false
@@ -861,26 +878,40 @@ const mainAttribute = (el, exp) => {
             };
             const values = keys.map((key) => resolvePath(key, el._context));
 
+            const hasExpression = regex.test(value);
+            regex.lastIndex = 0;
+
             value = value.replace(regex, (match, expression) => {
                 if (checkKeywordsExistence(el._staticContext, expression)) {
                     return ''
                 } else {
                     const func = new Function(...keys, `return ${expression}`);
-                    isBoolean = func(...values)
-                    if (typeof isBoolean !== 'boolean') {
-                        return isBoolean
+                    const result = func(...values)
+                    isBoolean = result
+                    if (typeof result !== 'boolean') {
+                        return result
                     }else{
                         return ''
                     }
                 }
             });
 
-            if (removeAttribute.has(exp.name)) {
-                if (isBoolean) {
+            if (booleanAttributes.has(exp.name)) {
+                const boolValue = hasExpression ? !!isBoolean : value.toLowerCase() !== 'false';
+                const propName = exp.name === 'readonly' ? 'readOnly' : exp.name;
+
+                if (propName in el) {
+                    el[propName] = boolValue;
+                }
+
+                if (boolValue) {
                     el.setAttribute(exp.name, '');
                 } else {
-                    el.removeAttribute(exp.name)
+                    el.removeAttribute(exp.name);
                 }
+            } else if (exp.name === 'value' && 'value' in el) {
+                el.value = value;
+                el.setAttribute(exp.name, value);
             } else {
                 if (exp.name === 'class' && !enter) {
                     requestAnimationFrame(()=>{
@@ -943,7 +974,11 @@ const textContentHandler = (el, isName) => {
                         return String(func(...values));
                     }
                 });
-                textNode.nodeValue = value;
+                if(el.tagName === 'TEXTAREA'){
+                    el.value=value
+                }else{
+                    textNode.nodeValue = value;
+                }
 
             });
         } catch (error) {
@@ -971,7 +1006,7 @@ const template = (el,notRender, attr) => {
 
 const directives = {
     if: If,
-    for: For,
+    'for-each': For,
     else:(el)=>{el._running =true},
     case:(el)=>{el._running =true},
     default:(el)=>{el._running =true},
@@ -1060,25 +1095,22 @@ export const render = (el, contexts = {}, notRender, isName) => {
             } 
             else if (attr.name.startsWith('c-c-')) {
                 stopResume.stop = true
-                
-                component(el, true, attr, notRender, stopResume)
+                component(el, true, attr, notRender, stopResume)// component continuity
             } else if (attr.name.startsWith('c-at-')) {
-                resumer.resume_attribute?.(el, attr, notRender)
+                resumer.resume_attribute?.(el, attr, notRender) //attribute continuity
             } else if (attr.name.startsWith('c-$-')) {
-                resumer.resume_state?.(el, attr, notRender)
-            } else if (attr.name.startsWith('c-t')) {
+                resumer.resume_state?.(el, attr, notRender) //state continuity
+            } else if (attr.name.startsWith('c-t')) {//text continuity
                 resumer.resume_text(el, attr, isName)
             } else if (attr.name.startsWith('c-if-')) {
-                directives['if'](el, attr, stateContext, true, notRender, stopResume)
+                directives['if'](el, attr, stateContext, true, notRender, stopResume) // condition continuity
             } else if (attr.name === 'c-for') {
-                directives['for'](el, attr, stateContext, true, notRender, stopResume)
+                directives['for-each'](el, attr, stateContext, true, notRender, stopResume) // for-each continuity
             }else if (attr.name.startsWith('c-key-')) {
-                directives['key'](el, attr, stateContext, true, notRender, stopResume)
+                directives['key'](el, attr, stateContext, true, notRender, stopResume)// key continuity
             }  
             else if (attr.name.startsWith('c-sw-')) {
-                directives['switch'](el, attr, stateContext, true, notRender, stopResume)
-            } else if (attr.name === 'c-for') {
-                directives['for'](el, attr, stateContext, true, notRender, stopResume)
+                directives['switch'](el, attr, stateContext, true, notRender, stopResume)// switch continuity
             } else if (fullNamePlugin.has(attr.name)) {
                 if (externalPlugin[attr.name]) {
                     const plugin = externalPlugin[attr.name]
@@ -1137,6 +1169,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
         const number = { notRender: null, index: null }
         Array.from(el.children).forEach((child, index) => {
             number.index = index
+            if (number.notRender !== null && index <= number.notRender) return
             render(child, context, number, isName)
         })
         el._callMount()

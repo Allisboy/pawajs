@@ -42,6 +42,10 @@ class PawaComponent {
       isUnMount: [],
     };
     /**
+     * Data serialized from pawa-ssr
+     */
+    this._serializedData={}
+    /**
      * Map for non-reactive internal state (currently unused).
      * @type {Map}
      */

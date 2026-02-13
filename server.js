@@ -13,8 +13,6 @@ const serverInstance={
 export const getServerInstance=()=>serverInstance
 export const setServer=(obj={})=>{
   for (const [key,value] of Object.entries(obj)) {
-    if (serverInstance[key] === null) {
       serverInstance[key]=value
-    }
   }
 }
