@@ -33,23 +33,9 @@ export const processNode = (node, itemContext) => {
     return
   }
   
-  if (node.nodeType === 3) { // Text node
-    const text = node.textContent
-    const newText = text.replace(/{{(.+?)}}/g, (match, exp) => {
-      try {
-        const keys = Object.keys(itemContext)
-        
-        const values = keys.map(key => itemContext[key])
-        
-        return new Function(...keys, `return ${exp}`)(...values)
-      } catch {
-        return match
-      }
-    })
-    //console.log(newText)
-    node.textContent = newText
-  } else if (node.attributes) {
+  if (node.attributes) {
     Array.from(node.attributes).forEach(attr => {
+      if(attr.name !== 'for-key') return
       const newValue = attr.value.replace(/{{(.+?)}}/g, (match, exp) => {
         try {
           const keys = Object.keys(itemContext)
@@ -62,9 +48,7 @@ export const processNode = (node, itemContext) => {
       attr.value = newValue
     })
   }
-  Array.from(node.childNodes).forEach((n) => {
-    processNode(n, itemContext)
-  })
+  
 }
 
 export const extractContextValues = (context) => {

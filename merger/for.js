@@ -48,9 +48,9 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                 const removeElement = []
                 
                 const newElementsMap = new Map()
-                Array.from(div.children).forEach(child => {
-                    const key = child.getAttribute('for-key')
-                    if (key) newElementsMap.set(key, child)
+                Array.from(div.children).forEach((child,i) => {
+                    const key = child.getAttribute('for-key') || i
+                    if (key || key === 0) newElementsMap.set(key, child)
                 })
 
                 elementArray.forEach((keyComment) => {
@@ -103,7 +103,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                                 keyMap.set(child._forKey, child)
                             })
                             Array.from(div.children).forEach((child, index) => {
-                                const key = child.getAttribute('for-key')
+                                const key = child.getAttribute('for-key') || index
                                 const context = el._context
                                 const itemContext = {
                                     [arrayItem]: array[index],

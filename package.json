@@ -1,6 +1,6 @@
 {
   "name": "pawajs",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "type":"module",
   "description": "pawajs library (html runtime) for easily building web ui, enhancing html element, micro frontend etc ",
   "main": "index.js",

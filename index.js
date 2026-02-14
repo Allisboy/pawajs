@@ -840,7 +840,7 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
         getComment(el)
         getEndComment(comment)
         el.removeAttribute(attr.name)
-        const numberComponentChildren = notRender.index + children.length - 1
+        const numberComponentChildren = notRender.index + children.length - 2
         notRender.notRender = numberComponentChildren
         resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
     }
