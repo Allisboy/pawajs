@@ -343,7 +343,7 @@ export const documentEvent = (el, attr) => {
     const resolvePath = (path, obj) => {
         return path.split('.').reduce((acc, key) => acc?.[key], obj);
     };              
-    const func = new Function('e', ...keys, `
+    const func = new Function('e','$element', ...keys, `
     try{
     ${attr.value}
     }catch(error){
@@ -352,9 +352,9 @@ export const documentEvent = (el, attr) => {
     }`)
     const values = keys.map((key) => resolvePath(key, el._context));
     const functions = (e) => {
-        try {
-
-            func(e, ...values)
+        try { 
+            const $element=el
+            func(e,$element, ...values)
         } catch (error) {
             setPawaDevError({
                 message: `Error from out-${eventName} directive ${error.message}`,
@@ -364,15 +364,14 @@ export const documentEvent = (el, attr) => {
         }
     }
     el.removeAttribute(attr.name)
-    setTimeout(() => {
+    el._MountFunctions.push( ()=> {
         document.addEventListener(eventName, functions)
-    }, 1000)
+    })
 
     const unMount = () => document.removeEventListener(eventName, functions);
     el._setUnMount(unMount)
 
 }
-
 export const exitTransition=(el,attr)=>{
 if (el._running) {
     return

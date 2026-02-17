@@ -2,7 +2,7 @@
 export interface PawaElement extends HTMLElement {
     _running: boolean;
     _context: any;
-    _staticContext: any[];
+    _staticContext: Array<string>;
     _resetEffects: Set<Function>;
     _avoidPawaRender: boolean;
     _el: HTMLElement;
@@ -188,8 +188,6 @@ export function getPawaAttributes(): Set<string>;
 
 export function getPrimaryDirectives(): Set<string>;
 
-export function setError(params: { error: any }): void;
-
 /**
  * Registers components for use in templates.
  * @param {...(string | Function)} args - Component functions or (name, function - done by pawajs-vite-plugin automaticly) pairs.
@@ -264,8 +262,9 @@ export function useServer<T = Record<string, any>>(): {
  * Stores the component instance into the returned $async hook.
  * Used in async component.
  * Must be called before any await call
+ * + uses onSuspense for loading state before any await
  */
-export function useAsync(): { $async: <T>(callback: () => T) => T };
+export function useAsync(): { $async: <T>(callback: () => T) => T ,onSuspense:(html:string)=>void};
 
 /**
  * Returns TRUE when pawajs is in continous rendering mode from ssr

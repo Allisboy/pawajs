@@ -6,6 +6,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
     let removePromise=null
     let promised=false
     let firstEnter = false
+    const elementArray=[]
     const parent = endComment.parentElement
     let latestChain
     let oldChain
@@ -22,7 +23,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                 func =new Map()
                 chained.forEach((item)=>{
                     if(item.condition === 'else')return
-                    let funcs=safeEval(el._context,item.exp,item.element)
+                    let funcs=el.safeEval(el._context,item.exp,'if')
                     func.set(item.exp,funcs)
                 })
             }
@@ -114,12 +115,16 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
             oldChain=latestChain
          firstEnter=true
             } catch (error) {
-                console.log(error.message,error.stack)
-                setPawaDevError({
-                    message: `Error from IF directive ${error.message}`,
-                    error: error,
-                    template: el._template
-                })
+                console.error(error.message,error.stack,el,chainMap)
+                console.warn(error.message,error.stack,el,'error at if/else-if/else directive check the exprresion')
+
+                __pawaDev.setError({ 
+                    el:el, 
+                    msg:`from {if/elseif/else} ${attr.value}`, 
+                    directives:'if/elseif/else', 
+                    stack:error.stack, 
+                    template:el?._template, 
+                 })
             }
         }
         return evaluate

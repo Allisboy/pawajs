@@ -1,5 +1,5 @@
 import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute,getPrimaryDirectives } from './index.js';
-import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues,safeEval} from './utils.js';
+import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues} from './utils.js';
 import PawaComponent from './pawaComponent.js';
 
 
@@ -70,6 +70,7 @@ export class PawaElement {
     this._scriptFetching=element.hasAttribute('script')
     this._scriptDone=false
     this._underControl=null
+    this.safeEval=this.safeEval
     /**
      * @type{object}
      */
@@ -101,6 +102,33 @@ export class PawaElement {
   getChildrenTree(){
     return Array.from(this._el.children)
   }
+   safeEval(context,expression,directive,resolve=false){
+  try{
+    const keys = Object.keys(context);
+  const resolvePath = (path, obj) => {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  };
+  if(resolve){
+    return new Function(...keys,`
+      return ${expression}
+      `)(...getEvalValues(context))
+  }else{
+    return new Function(...keys,`
+      return ${expression}    
+      `)
+  }
+  
+  }catch(error){
+    __pawaDev.setError({ 
+      el:this?._el, 
+      msg:`from ${expression}`, 
+      directives:directive, 
+      stack:error.stack, 
+      template:this?._template, 
+     })
+  }
+}
+
   reCallEffect(){
     this._resetEffects.forEach((call)=>{
       call()
@@ -307,31 +335,19 @@ export class PawaElement {
        }else if(!pawaAttribute.has(attr.name) && attr.name.startsWith(':')){
         
         const propsName=attr.name.slice(1) 
-        try {
-       const keys = Object.keys(this._context);
-const resolvePath = (path, obj) => {
-  return path.split('.').reduce((acc, key) => acc?.[key], obj);
-};
-const values = keys.map((key) => resolvePath(key, this._context));
-if(attr.value === '') attr.value=true;
-const value=new Function(...keys,`
-  return ()=>{
-    try{
-  const prop= ${replaceTemplateOperators(attr.value)};
-  if(prop === '')return prop
-  return prop
-  }catch(error){
-    console.error(error.message,error.stack)
-   }
-}
-`)(...values)
-this._props[propsName]=value
-        } catch (error) {
-          setPawaDevError({
-              message:`error from ${this._componentName} prop :${propsName} ${error.message}`,
-              error:error,
-              template:this._template
-            })
+        if(attr.value === '') attr.value="true";
+        const expression=`()=>{
+            try{
+          const prop= ${replaceTemplateOperators(attr.value)};
+          if(prop === '')return prop
+          return prop
+          }catch(error){
+            console.error(error.message,error.stack)
+           }
+        }`
+        const value=this.safeEval(this._context,expression,`prop sdvd :${propsName}`,true)
+        if (value) {
+          this._props[propsName]=value
         }
        }
     })

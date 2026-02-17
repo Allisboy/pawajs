@@ -27,7 +27,7 @@ export const pawaWayRemover=async (comment,endComment)=>{
   }
 return await pawaWayRemover(comment,endComment)
 }
-export const processNode = (node, itemContext) => {
+export const processNode = (node, itemContext, pawaEl) => {
   
   if (typeof itemContext === 'number') {
     return
@@ -37,13 +37,9 @@ export const processNode = (node, itemContext) => {
     Array.from(node.attributes).forEach(attr => {
       if(attr.name !== 'for-key') return
       const newValue = attr.value.replace(/{{(.+?)}}/g, (match, exp) => {
-        try {
-          const keys = Object.keys(itemContext)
-          const values = keys.map(key => itemContext[key])
-          return new Function(...keys, `return ${exp}`)(...values)
-        } catch {
-          return match
-        }
+        // The pawaEl is the element holding the for-each directive.
+        const result = pawaEl.safeEval(itemContext, exp, 'for-key', true);
+        return result ?? match;
       })
       attr.value = newValue
     })
@@ -70,9 +66,9 @@ return new Function(...keys,`return ${exp}`)(...values)
     }
 }
 
-export const setPawaDevError=({message,error,template})=>{
+export const setPawaDevError=({message,error,template, el})=>{
   console.error(message,error.message,error.stack)
-   __pawaDev.setError({msg:message ,stack:error.stack,el:template})
+   __pawaDev.setError({msg:message ,stack:error.stack,template:template, el:el})
 }
 
 export const propsValidator=(obj={},propsAttri,name,template,el)=>{
@@ -139,21 +135,11 @@ export const safeEval=(context,expression,el,resolve=false)=>{
   };
   if(resolve){
     return new Function(...keys,`
-      try{
       return ${expression}
-      }catch(error){
-      console.error(error.message,error.stack)
-      __pawaDev.setError({msg:error.message,stack:error.stack})
-      }
       `)(...getEvalValues(context))
   }else{
     return new Function(...keys,`
-      try{
-      return ${expression}
-      }catch(error){
-      console.error(error.message,error.stack)
-      __pawaDev.setError({msg:error.message,stack:error.stack})
-      }
+      return ${expression}    
       `)
   }
   
@@ -161,7 +147,7 @@ export const safeEval=(context,expression,el,resolve=false)=>{
     setPawaDevError({
           message:`Error : ${error.message} ${error.stack}`,
           error:error,
-          template:el._template
+          template:el?._template
         })
   }
 }

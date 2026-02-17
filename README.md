@@ -281,6 +281,12 @@ For handling DOM events.
 <button on-click="addTodo()">Add Todo</button>
 <input on-input="newTodoText.value = e.target.value" />
 ```
+#### `out-<event>`
+For handling DOM events.
+
+```html
+<button out-click="console.log('outside')">Add Todo</button>
+```
 
 ### Component Props
 

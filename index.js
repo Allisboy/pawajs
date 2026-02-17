@@ -31,8 +31,9 @@ const errorCaller = (message) => {
 }
 const client = isServer() === false
 const serverInstance = getServerInstance()
-if (client) {
-    window.__pawaDev = {
+const createPawaDev = () => {
+    const listeners = new Set();
+    const devTools = {
         tool: false,
         errors: [],
         totalEffect: 0,
@@ -48,49 +49,111 @@ if (client) {
             start: 0,
             end: 0
         },
-        setError: ({ el, msg, directives, stack, template, warn } = {}) => {
-            if (__pawaDev.tool !== true) return
-            if (__pawaDev.errorState) {
-                __pawaDev.errorState.value = true
+        _originalStyles: new Map(),
+
+        highlightElement(el) {
+            if (!(el instanceof HTMLElement)) return;
+
+            if (!this._originalStyles.has(el)) {
+                this._originalStyles.set(el, {
+                    outline: el.style.outline,
+                    boxShadow: el.style.boxShadow,
+                });
             }
-            __pawaDev.errors.push({
+            el.style.outline = '2px solid #f87171';
+            el.style.boxShadow = '0 0 10px rgba(248, 113, 113, 0.7)';
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+
+        unhighlightElement(el) {
+            if (!(el instanceof HTMLElement) || !this._originalStyles.has(el)) return;
+            const original = this._originalStyles.get(el);
+            el.style.outline = original.outline;
+            el.style.boxShadow = original.boxShadow;
+            this._originalStyles.delete(el);
+        },
+        subscribe(callback) {
+            listeners.add(callback);
+            return () => listeners.delete(callback);
+        },
+        emit(type, data) {
+            listeners.forEach(cb => {
+                try {
+                    cb({ type, data });
+                } catch (e) {
+                    console.error("PawaDev listener error:", e);
+                }
+            });
+        },
+        setError: ({ el, msg, directives, stack, template, warn } = {}) => {
+            if (devTools.tool !== true) return
+            if (devTools.errorState) {
+                devTools.errorState.value = true
+            }
+            const errorInfo = {
                 el,
                 msg,
                 directives,
                 stack,
                 timestamp: Date.now(),
-                template: template ? template : ''
-            })
-            if (warn) {
-                console.warn(msg, stack, template)
+                template: template ? template : '',
+                type: warn ? 'warning' : 'error'
             }
-            console.error(msg, stack)
+            devTools.errors.push(errorInfo)
+            devTools.emit('error', errorInfo)
+            
+            if (warn) {
+                console.warn(msg, stack, template, el,directives)
+            } else {
+                if (typeof window === 'undefined') {
+                    console.error(msg, stack, template)
+                }else{
+                    console.error(msg, stack, template, el)
+                }
+            }
         },
         logRender: (component, time) => {
-            __pawaDev.renderCount++
-                __pawaDev.performance.renderTime.push({
-                    component,
-                    time,
-                    timestamp: Date.now()
-                })
+            devTools.renderCount++
+            const data = {
+                component,
+                time,
+                timestamp: Date.now()
+            }
+            devTools.performance.renderTime.push(data)
+            devTools.emit('render', data)
         },
         logEffect: (effect, time) => {
-            __pawaDev.totalEffect++
-                __pawaDev.performance.effectTime.push({
-                    effect,
-                    time,
-                    timestamp: Date.now()
-                })
+            devTools.totalEffect++
+            const data = {
+                effect,
+                time,
+                timestamp: Date.now()
+            }
+            devTools.performance.effectTime.push(data)
+            devTools.emit('effect', data)
         },
         logComponent: (name, time) => {
-            __pawaDev.components.add(name)
-            __pawaDev.performance.componentTime.push({
+            devTools.components.add(name)
+            const data = {
                 name,
                 time,
                 timestamp: Date.now()
-            })
+            }
+            devTools.performance.componentTime.push(data)
+            devTools.emit('component', data)
         }
     }
+    return devTools;
+}
+
+const pawaDevInstance = createPawaDev();
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.__pawaDev = pawaDevInstance;
+} else if (typeof window !== 'undefined') {
+    window.__pawaDev = pawaDevInstance;
+} else if (typeof global !== 'undefined') {
+    global.__pawaDev = pawaDevInstance;
 }
 
 const compoBeforeCall = new Set()
@@ -261,6 +324,7 @@ let stateContext = {
     _formerContext: null,
     _insert: {},
     _resume: false,
+    _suspense:'',
     _hook: {
         effect: [],
         isMount: [],
@@ -305,19 +369,6 @@ setPawaAttributes('if', 'else-if', 'for-each', 'else', 'mount',
 export const getDependentAttribute = () => dependentPawaAttribute
 export const getPawaAttributes = () => {
     return pawaAttributes
-}
-export const setError = ({ error }) => {
-    if (!client) return
-    if (!stateContext) {
-        console.warn('must be used inside of a component')
-        return
-    }
-    if (!stateContext._hasRun) {
-        if (!stateContext?._error) {
-            stateContext._error = []
-        }
-        stateContext?._error.push(error)
-    }
 }
 
 /**
@@ -406,7 +457,7 @@ export const runEffect = (callback, deps) => {
 }
 
 /**
- * 
+ * to validate component for runtime rules
  * @param {object} props 
  * @returns {object}
  */
@@ -419,6 +470,7 @@ export const useValidateComponent = (component, object) => {
     }
     /**
      * @returns {{id:string,setValue:()=>void}}
+     * + Sets the context
      */
 export const setContext = () => {
     if (client) {
@@ -474,7 +526,7 @@ export const useContext = (context) => {
 }
 
 /**
- * Get Current component context from the html
+ * Get Current component context from the html (the component parent)
  * @returns {object}
  */
 export const useInnerContext = () => {
@@ -533,16 +585,22 @@ export const useAsync = () => {
                 storeContext._hasRun = true
                 stateContext = null
                 return res
+            },
+            onSuspense:(html)=>{
+                storeContext._suspense=html
             }
         }
     } else {
+        //sets server initialization to default
         return {
             $async: (callback) => {
                 return callback()
-            }
+            },
+            onSuspense:(html)=>{}
         }
     }
 }
+//resume state during after ssr
 export const isResume = () => {
         if (client) {
             return stateContext._resume
@@ -605,6 +663,7 @@ export const setStateContext = (context) => {
     stateContext._reactiveProps = {}
     stateContext._template = ''
     stateContext._resume = false
+    stateContext._suspense=''
     stateContext._hook={
         beforeMount:[],
         reactiveEffect:[],
@@ -795,7 +854,7 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
         return
     }
     el._running = true
-
+    
     if (!resume) {
         normal_component(el, stateContext, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch)
     } else {
@@ -872,11 +931,6 @@ const mainAttribute = (el, exp) => {
             let value = attrMap.get(exp.name);
             let isBoolean
             const regex = /@{([^}]*)}/g;
-            const keys = Object.keys(el._context);
-            const resolvePath = (path, obj) => {
-                return path.split('.').reduce((acc, key) => acc?.[key], obj);
-            };
-            const values = keys.map((key) => resolvePath(key, el._context));
 
             const hasExpression = regex.test(value);
             regex.lastIndex = 0;
@@ -885,11 +939,10 @@ const mainAttribute = (el, exp) => {
                 if (checkKeywordsExistence(el._staticContext, expression)) {
                     return ''
                 } else {
-                    const func = new Function(...keys, `return ${expression}`);
-                    const result = func(...values)
+                    const result = el.safeEval(el._context, expression, `error at attribute ${exp.name}`, true)
                     isBoolean = result
                     if (typeof result !== 'boolean') {
-                        return result
+                        return result ?? ''
                     }else{
                         return ''
                     }
@@ -924,11 +977,13 @@ const mainAttribute = (el, exp) => {
             }
         } catch (error) {
             console.warn(`failed at attribute ${exp.name}`, el)
-            setPawaDevError({
-                message: `error at attribute ${error.message}`,
-                error: error,
-                template: el._template
-            })
+            __pawaDev.setError({ 
+                    el:el, 
+                    msg:`from  ${exp.name} ${exp.value}`, 
+                    directives:exp.name, 
+                    stack:error.stack, 
+                    template:el?._template, 
+                 })
         }
     };
     createEffect(() => {
@@ -958,20 +1013,14 @@ const textContentHandler = (el, isName) => {
                 let value = nodesMap.get(textNode);
                 const regex = /@{([^}]*)}/g;
 
-                const keys = Object.keys(el._context);
-                const resolvePath = (path, obj) => {
-                    return path.split('.').reduce((acc, key) => acc?.[key], obj);
-                };
-                const values = keys.map((key) => resolvePath(key, el._context));
-
                 value = value.replace(regex, (match, expression) => {
                     if (checkKeywordsExistence(el._staticContext, expression)) {
                         return ''
                     } else {
-
+                        if(expression === '')return value
                         el._textContent[expression] = value
-                        const func = new Function(...keys, `return ${expression}`);
-                        return String(func(...values));
+                        const res = el.safeEval(el._context, expression, 'textContent', true)
+                        return String(res ?? '');
                     }
                 });
                 if(el.tagName === 'TEXTAREA'){
@@ -1208,6 +1257,8 @@ const Pawa = {
     setContext,
     $state,
     pawaStartApp,
+    useAsync,
+    useInnerContext,
     RegisterComponent,
     runEffect,
     html

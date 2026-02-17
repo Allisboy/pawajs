@@ -77,30 +77,46 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
         }
     const storeContext=stateContexts
     let compo 
+    let awaits=false
+    let suspense=''
       try {
         if(done){
         const compoCall=component.component(app)
         if( compoCall instanceof Promise){
+          suspense=stateContexts._suspense || ''
+          
+          awaits=true 
           compoCall.then((res)=>{
             div.innerHTML=res
+            let promise
+            if (comment.nextSibling !== endComment) {
+              promise= pawaWayRemover(comment,endComment)
+            }
             propsSetter()
-            if (storeContext._hasRun) {
-                storeContext._hasRun = false
-                keepContext(storeContext)
-             }if (storeContext?._insert) {
-      Object.assign(el._context,storeContext._insert)
-    }
-            childInsert()
-            lifeCircle()
-            storeContext._hasRun=true
-            stateContext=null
-          })
+            Promise.all([promise]).then(()=>{
+              if (storeContext._hasRun) {
+                  storeContext._hasRun = false
+                  keepContext(storeContext)
+               }if (storeContext?._insert) {
+        Object.assign(el._context,storeContext._insert)
+      }
+              childInsert(false)
+              lifeCircle()
+              storeContext._hasRun=true
+              stateContext=null
+            })
+            })
         }else if (compoCall !== undefined){
           compo= sanitizeTemplate(compoCall)
         }
       }else{
           compo=""
         }
+        if (awaits && suspense) {
+          
+          compo= sanitizeTemplate(suspense)
+        }
+        
       } catch (error) {
         setPawaDevError({
           message:`error from ${el._componentName} component  ${error.message}`,
@@ -135,8 +151,12 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
           console.error(error.message)
         }
       }
-      const childInsert=()=>{
-      el._component?._hook?.beforeMount?.forEach((bfm) => {
+      
+      const childInsert=(awaiting)=>{
+        console.log(stateContexts._insert)
+        if (awaiting === false) {
+          el._component?._hook?.beforeMount?.forEach((bfm) => {
+            bfm._sent=true
      const result= bfm(comment)
      if (typeof result === 'function') {
        el._unMountFunctions.push(result)
@@ -144,16 +164,19 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     })
     
     el._component?._hook?.isMount.forEach((hook) => {
-        el._MountFunctions.push(hook)
+      hook._sent=true
+      el._MountFunctions.push(hook)
     })
     el._component?._hook?.isUnMount.forEach((hook) => {
-        el._unMountFunctions.push(hook)
+      hook._sent=true
+      el._unMountFunctions.push(hook)
     })
-    const child=div.children[0]
-    
-    if (child !== null ) {
-      if (child) {
-    endComment.parentElement.insertBefore(child, endComment)
+  }
+  const child=div.children[0]
+  
+  if (child !== null ) {
+    if (child) {
+      endComment.parentElement.insertBefore(child, endComment)
     
     stateContexts?._error?.forEach((error) => {
       throw Error(error)
@@ -162,10 +185,11 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       } 
     }
     }
-    childInsert()
+    childInsert(awaits?true:false);
     const lifeCircle=()=>{
       Promise.resolve().then(()=>{
       el._component?._hook?.effect.forEach((hook) => {
+        
         if(hook?.done) return
         hook.done=true
         const result=stateWatch(hook.effect,hook.deps)
@@ -200,7 +224,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       
     })
     }
-    lifeCircle()
+    if(awaits === false)lifeCircle()
     stateContexts._hasRun=true
     keepContext(stateContexts._formerContext)
     if (stateContexts._transportContext) {

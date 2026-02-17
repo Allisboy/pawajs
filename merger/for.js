@@ -6,31 +6,21 @@ import { processNode, pawaWayRemover, safeEval, getEvalValues, setPawaDevError, 
 export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes, resume,
     { comment, endComment, unique, elementArray, insertIndex,keyOrders }) => {
     let firstEnter
-    let func
     let once=false
     let promised
+    let func
+    let context=el._context
     const keyOrder=keyOrders || new Map()
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
         }
         try {
-            const keys = Object.keys(el._context);
-            const resolvePath = (path, obj) => {
-                return path.split('.').reduce((acc, key) => acc?.[key], obj);
-            };
-            const values = keys.map((key) => resolvePath(key, el._context));
-
-            let array
             if (!func) {
-
-                const funcs = new Function(...keys, `
-                    return ${arrayName}
-                `)
-                func = funcs
+                func=el.safeEval(el._context, arrayName, 'for-each');
             }
-            let update
-            array = func(...values)
+            let array = func(...getEvalValues(context))
+            let update;
             if (!firstEnter) {
                 const div = document.createElement('div')
                 array.forEach((item, index) => {
@@ -42,7 +32,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                     }
                     const newElement = el._attrElement('for-each')
                     newElement.setAttribute('data-for-index', index)
-                    processNode(newElement, itemContext)
+                    processNode(newElement, itemContext, el)
                     div.appendChild(newElement)
                 })
                 const removeElement = []
@@ -131,7 +121,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                                     child.setAttribute('for-unique', unique)
                                     child.setAttribute('data-for-index', index)
                                     keyComment._index = index
-                                    processNode(child, itemContext)
+                                    processNode(child, itemContext, el)
 
                                     endComment.parentElement.insertBefore(endKeyComment, endComment)
                                     endKeyComment.parentElement.insertBefore(keyComment, endKeyComment)
@@ -174,7 +164,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                     keyComment._endComment = endKeyComment
                     newElement.setAttribute('for-unique', unique)
                     newElement.setAttribute('data-for-index', index)
-                    processNode(newElement, itemContext)
+                    processNode(newElement, itemContext, el)
                     keyOrder.set(index,{comment:keyComment})
                     keyComment._index = index
                     keyComment._setKey(newElement.getAttribute('for-key') || index)
@@ -215,7 +205,8 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
             setPawaDevError({
                 message: `Error from For directive ${error.message}`,
                 error: error,
-                template: el._template
+                template: el._template,
+                el: el._el
             })
         }
     }

@@ -115,12 +115,15 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
             oldChain=latestChain
          firstEnter=true
             } catch (error) {
-                console.log(error.message,error.stack)
-                setPawaDevError({
-                    message: `Error from IF directive ${error.message}`,
-                    error: error,
-                    template: el._template
-                })
+                console.error(error.message,error.stack,el)
+                console.warn(error.message,error.stack,el,'from at switch case check your exprssion')
+                 __pawaDev.setError({ 
+                    el:el, 
+                    msg:`from  {switch/case} ${attr.value}`, 
+                    directives:'switch/case', 
+                    stack:error.stack, 
+                    template:el?._template, 
+                 })
             }
         }
         return evaluate

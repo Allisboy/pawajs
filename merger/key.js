@@ -21,7 +21,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
             let value=attr.value 
             let keyValue
             if (!func) {
-                func=safeEval(el._context,attr.value,el)
+                func=el.safeEval(el._context,attr.value,'key')
             }
             const values = getEvalValues(el._context)
             let current
@@ -89,12 +89,15 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
             
          firstEnter=true
             } catch (error) {
-                console.log(error.message,error.stack)
-                setPawaDevError({
-                    message: `Error from IF directive ${error.message}`,
-                    error: error,
-                    template: el._template
-                })
+                console.error(error.message,error.stack,el,attr.value)
+                console.warn(error.message,error.stack,el,'error at key direcive check your expression')
+                __pawaDev.setError({ 
+                    el:el, 
+                    msg:`from  {key} ${attr.value}`, 
+                    directives:'key', 
+                    stack:error.stack, 
+                    template:el?._template, 
+                 })
             }
         }
         return evaluate
