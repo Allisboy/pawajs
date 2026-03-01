@@ -21,6 +21,7 @@ export class PawaElement {
     this._avoidPawaRender=element.hasAttribute('pawa-avoid');
     this._el=element 
     this._out=false;
+    this._stateContext=null
     this._terminateEffects=new Set()
     this._deleteEffects=this.terminateEffects
     /**
@@ -136,6 +137,7 @@ export class PawaElement {
   }
   setPawaAttr(){
     const isResume=this._el.hasAttribute('p:c')
+    if (this._el.hasAttribute('p-async')) return
     if(isResume){
       const pawaAttr=this._el.getAttribute('p:c')
       const array=pawaAttr.split(';')
@@ -347,7 +349,11 @@ export class PawaElement {
         }`
         const value=this.safeEval(this._context,expression,`prop sdvd :${propsName}`,true)
         if (value) {
-          this._props[propsName]=value
+          let name=propsName
+                if(name.includes('-')){
+                     name=name.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                }
+          this._props[name]=value
         }
        }
     })

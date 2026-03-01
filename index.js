@@ -592,12 +592,7 @@ export const useAsync = () => {
         }
     } else {
         //sets server initialization to default
-        return {
-            $async: (callback) => {
-                return callback()
-            },
-            onSuspense:(html)=>{}
-        }
+        return serverInstance.useAsync?.()
     }
 }
 //resume state during after ssr
@@ -992,7 +987,7 @@ const mainAttribute = (el, exp) => {
 };
 
 const textContentHandler = (el, isName) => {
-    if (el._hasForOrIf()) {
+    if (el._hasForOrIf() || el._componentName) {
         return
     }
     if (el._running) {
@@ -1093,7 +1088,8 @@ export const render = (el, contexts = {}, notRender, isName) => {
         }
     }
     PawaElement.Element(el, context)
-    el._staticContext = stateContext._static
+    el._staticContext = stateContext?._static
+    el._stateContext=stateContext
     for (const fn of renderAfterPawa) {
         try {
             fn(el)
@@ -1222,13 +1218,35 @@ export const render = (el, contexts = {}, notRender, isName) => {
             render(child, context, number, isName)
         })
         el._callMount()
-       if (el.hasAttribute('p:c')) {
+       if (el.hasAttribute('p:c') && !el.hasAttribute('p-async')) {
         el.removeAttribute('p:c')
        }
 }
 }
-
-
+// added streaming awareness
+if (typeof window !== 'undefined') {
+        window.__pawaStream=(element,context,statecontext)=>{
+            let appContext
+            if(!window?.__pawaHasStarted){
+                if(window?.__startClient === null )return
+                window?.__startClient()
+                
+                window.__startClient=null
+                window.__pawaHasStarted=true
+                return
+            }
+            if(statecontext === undefined){
+                appContext=stateContext
+            }else{
+                appContext=statecontext
+            }
+            keepContext(appContext)
+            appContext._hasRun=false
+            render(element,context,{index:0,notRender:null})
+            appContext._hasRun=true
+        }
+    
+}
 export const pawaStartApp = (app, context = {}) => {
     render(app, context)
 }

@@ -9,6 +9,7 @@ const serverInstance={
   $state:null,
   accessChild:null,
   useServer:null,
+  useAsync:null,
 }
 export const getServerInstance=()=>serverInstance
 export const setServer=(obj={})=>{

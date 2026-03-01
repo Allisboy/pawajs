@@ -101,7 +101,9 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
         Object.assign(el._context,storeContext._insert)
       }
               childInsert(false)
-              lifeCircle()
+              Promise.resolve().then(()=>{
+                lifeCircle()
+              })
               storeContext._hasRun=true
               stateContext=null
             })
@@ -153,7 +155,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
       
       const childInsert=(awaiting)=>{
-        console.log(stateContexts._insert)
+        // console.log(stateContexts._insert)
         if (awaiting === false) {
           el._component?._hook?.beforeMount?.forEach((bfm) => {
             bfm._sent=true
