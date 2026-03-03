@@ -7,6 +7,8 @@ pawajs - power the web (reactivity and html runtime)
 
 PawaJS is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering, PawaJS is equipped for performance and scalability.
 
+🌐 **Website:** [pawajs.vercel.app](https://pawajs.vercel.app)
+
 ---
 
 ## Features
