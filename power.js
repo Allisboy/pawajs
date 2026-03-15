@@ -63,7 +63,7 @@ export const If = (el, attr, stateContext,resume=false,notRender,stopResume) => 
             const setEndComment=(c)=>endComment=c
             getComment(el,setComment,id)
             getEndComment(comment,setEndComment,id,children)
-            const numberIfChildren=notRender.index + children.length - 1
+            const numberIfChildren=notRender.index + children.length - 2
       notRender.notRender=numberIfChildren
             resumer.resume_if?.(el,attr,stateContext,{comment,endComment,id,children})
 
@@ -126,7 +126,7 @@ export const Switch = (el, attr, stateContext,resume=false,notRender,stopResume)
             const setEndComment=(c)=>endComment=c
             getComment(el,setComment,id)
             getEndComment(comment,setEndComment,id,children)
-            const numberIfChildren=notRender.index + children.length - 1
+            const numberIfChildren=notRender.index + children.length - 2
       notRender.notRender=numberIfChildren
             resumer.resume_switch?.(el,attr,stateContext,{comment,endComment,id,children})
 
@@ -138,8 +138,11 @@ export const event = (el, attr, stateContext) => {
     if (el._running || checkKeywordsExistence(el._staticContext,attr.value)) {
         return
     }
-    const splitName = attr.name.split('-')
-    const eventType = splitName[1]
+    const directive = attr.name.substring(3); // from 'on-click.prevent' to 'click.prevent'
+    const parts = directive.split('.');
+    const eventType = parts[0];
+    const modifiers = new Set(parts.slice(1));
+
     el.removeAttribute(attr.name)
     const context = el._context
     const keys = Object.keys(context);
@@ -155,7 +158,64 @@ export const event = (el, attr, stateContext) => {
     __pawaDev.setError({el:e.target,msg:error.message,stack:error.stack,directives:'on-event'})
     }
     `)
-    el.addEventListener(eventType, (e) => {
+    
+    const handler = (e) => {
+        // Early return modifiers
+        if (modifiers.has('self') && e.target !== el) return;
+        if (modifiers.has('left') && 'button' in e && e.button !== 0) return;
+        if (modifiers.has('middle') && 'button' in e && e.button !== 1) return;
+        if (modifiers.has('right') && 'button' in e && e.button !== 2) return;
+        if (modifiers.has('ctrl') && !e.ctrlKey) return;
+        if (modifiers.has('alt') && !e.altKey) return;
+        if (modifiers.has('shift') && !e.shiftKey) return;
+        if (modifiers.has('meta') && !e.metaKey) return;
+        if (modifiers.has('exact')) {
+            if (e.ctrlKey && !modifiers.has('ctrl')) return;
+            if (e.altKey && !modifiers.has('alt')) return;
+            if (e.shiftKey && !modifiers.has('shift')) return;
+            if (e.metaKey && !modifiers.has('meta')) return;
+        }
+
+        // Key modifiers
+        if (eventType.startsWith('key')) {
+            const keyAlias = {
+                'enter': 'Enter',
+                'tab': 'Tab',
+                'delete': ['Backspace', 'Delete'],
+                'esc': 'Escape',
+                'space': ' ',
+                'up': 'ArrowUp',
+                'down': 'ArrowDown',
+                'left': 'ArrowLeft',
+                'right': 'ArrowRight'
+            };
+            
+            let shouldRun = false;
+            let hasKeyModifier = false;
+            for (const mod of modifiers) {
+                if (keyAlias[mod]) {
+                    hasKeyModifier = true;
+                    const expectedKey = keyAlias[mod];
+                    if (Array.isArray(expectedKey)) {
+                        if (expectedKey.includes(e.key)) {
+                            shouldRun = true;
+                            break;
+                        }
+                    } else if (e.key === expectedKey) {
+                        shouldRun = true;
+                        break;
+                    }
+                }
+            }
+            if (hasKeyModifier && !shouldRun) {
+                return;
+            }
+        }
+
+        // Action modifiers
+        if (modifiers.has('prevent')) e.preventDefault();
+        if (modifiers.has('stop')) e.stopPropagation();
+
         try {
             func(e, ...values)
         } catch (error) {
@@ -165,8 +225,15 @@ export const event = (el, attr, stateContext) => {
                 template: el._template
             })
         }
-    })
+    };
 
+    const options = {
+        capture: modifiers.has('capture'),
+        once: modifiers.has('once'),
+        passive: modifiers.has('passive')
+    };
+    
+    el.addEventListener(eventType, handler, options)
 }
 
 export const mountElement = (el, attr) => {
@@ -335,10 +402,14 @@ export const documentEvent = (el, attr) => {
     if (el._running || checkKeywordsExistence(el._staticContext,attr.value)) {
         return
     }
-    if (attr.name.split('-')[2]) {
-        return
-    }
-    const eventName = attr.name.split('-')[1]
+    const directive = attr.name.substring(4); // from 'out-click.prevent' to 'click.prevent'
+    const parts = directive.split('.');
+    const eventType = parts[0];
+    const modifiers = new Set(parts.slice(1));
+
+    if (!eventType) return;
+
+    el.removeAttribute(attr.name)
     const keys = Object.keys(el._context);
     const resolvePath = (path, obj) => {
         return path.split('.').reduce((acc, key) => acc?.[key], obj);
@@ -348,27 +419,85 @@ export const documentEvent = (el, attr) => {
     ${attr.value}
     }catch(error){
     console.error(error.message,error.stack)
-    __pawaDev({msg:error.message,stack:error.stack,directives:'out-event'})
+    __pawaDev.setError({msg:error.message,stack:error.stack,directives:'out-event'})
     }`)
     const values = keys.map((key) => resolvePath(key, el._context));
-    const functions = (e) => {
+    const handler = (e) => {
+        // Modifier checks
+        if (modifiers.has('left') && 'button' in e && e.button !== 0) return;
+        if (modifiers.has('middle') && 'button' in e && e.button !== 1) return;
+        if (modifiers.has('right') && 'button' in e && e.button !== 2) return;
+        if (modifiers.has('ctrl') && !e.ctrlKey) return;
+        if (modifiers.has('alt') && !e.altKey) return;
+        if (modifiers.has('shift') && !e.shiftKey) return;
+        if (modifiers.has('meta') && !e.metaKey) return;
+        if (modifiers.has('exact')) {
+            if (e.ctrlKey && !modifiers.has('ctrl')) return;
+            if (e.altKey && !modifiers.has('alt')) return;
+            if (e.shiftKey && !modifiers.has('shift')) return;
+            if (e.metaKey && !modifiers.has('meta')) return;
+        }
+
+        // Key modifiers
+        if (eventType.startsWith('key')) {
+            const keyAlias = {
+                'enter': 'Enter',
+                'tab': 'Tab',
+                'delete': ['Backspace', 'Delete'],
+                'esc': 'Escape',
+                'space': ' ',
+                'up': 'ArrowUp',
+                'down': 'ArrowDown',
+                'left': 'ArrowLeft',
+                'right': 'ArrowRight'
+            };
+            
+            let shouldRun = false;
+            let hasKeyModifier = false;
+            for (const mod of modifiers) {
+                if (keyAlias[mod]) {
+                    hasKeyModifier = true;
+                    const expectedKey = keyAlias[mod];
+                    if (Array.isArray(expectedKey)) {
+                        if (expectedKey.includes(e.key)) {
+                            shouldRun = true;
+                            break;
+                        }
+                    } else if (e.key === expectedKey) {
+                        shouldRun = true;
+                        break;
+                    }
+                }
+            }
+            if (hasKeyModifier && !shouldRun) {
+                return;
+            }
+        }
+
+        // Action modifiers
+        if (modifiers.has('prevent')) e.preventDefault();
+        if (modifiers.has('stop')) e.stopPropagation();
+
         try { 
             const $element=el
             func(e,$element, ...values)
         } catch (error) {
             setPawaDevError({
-                message: `Error from out-${eventName} directive ${error.message}`,
+                message: `Error from out-${eventType} directive ${error.message}`,
                 error: error,
                 template: el._template
             })
         }
     }
-    el.removeAttribute(attr.name)
-    el._MountFunctions.push( ()=> {
-        document.addEventListener(eventName, functions)
-    })
 
-    const unMount = () => document.removeEventListener(eventName, functions);
+    const options = {
+        capture: modifiers.has('capture'),
+        once: modifiers.has('once'),
+        passive: modifiers.has('passive')
+    };
+    const target = modifiers.has('window') ? window : document;
+    el._MountFunctions.push(() => target.addEventListener(eventType, handler, options))
+    const unMount = () => target.removeEventListener(eventType, handler, options);
     el._setUnMount(unMount)
 
 }

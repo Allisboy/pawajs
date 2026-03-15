@@ -261,7 +261,7 @@ export const PluginSystem = (...func) => {
                 if (attrPlugins?.fullName) {
                     if (pawaAttributes.has(attrPlugins.fullName)) {
                         console.warn(`attribute plugin already exist ${attrPlugins.fullName}`)
-                        return
+                        // return
                     }
                     
                     applyMode(attrPlugins?.mode, () => {
@@ -273,7 +273,7 @@ export const PluginSystem = (...func) => {
                 } else if (attrPlugins?.startsWith) {
                     if (pawaAttributes.has(attrPlugins.startsWith)) {
                         console.warn(`attribute plugin already exist ${attrPlugins.startsWith}`)
-                        return
+                        // return
                     }
                     applyMode(attrPlugins?.mode, () => {
                         pawaAttributes.add(attrPlugins.startsWith)
@@ -283,8 +283,6 @@ export const PluginSystem = (...func) => {
                     })
                 }
             })
-
-
 
         }
         if (getPlugin?.component) {
@@ -877,10 +875,12 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
             }
         }
         const getEndComment = (comment) => {
+            if(endComment) return;
             const isComment = comment.nextSibling
             if (comment.nextSibling.nodeType === 8) {
                 if (isComment.data.split('+')[1] === id) {
                     endComment = isComment
+                    return
                 } else {
                     getEndComment(isComment)
                 }
@@ -891,10 +891,14 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
                 getEndComment(isComment)
             }
         }
-        getComment(el)
-        getEndComment(comment)
+        try {
+            getComment(el)
+            getEndComment(comment)
+        } catch (error) {
+            // el has no previous Sibling
+        }
         el.removeAttribute(attr.name)
-        const numberComponentChildren = notRender.index + children.length - 2
+        const numberComponentChildren = notRender.index -2 + children.length
         notRender.notRender = numberComponentChildren
         resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
     }

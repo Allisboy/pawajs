@@ -342,6 +342,7 @@ useValidateComponent(TodoList, {
 -   `pawaStartApp(rootElement, initialContext)`: Initializes the PawaJS application on a given root DOM element.
 -   `RegisterComponent(...components)`: Registers one or more components to be used in templates.
 -   `$state(initialValue, localStorageKey?)`: Creates a new reactive state object.
+-   `PluginSystem(plugin)`: Registers a plugin to extend PawaJS functionality (e.g., Routers, Global Stores).
 -   `html`: A tagged template literal for syntax highlighting and potential future optimizations.
 
 ### Component Hooks

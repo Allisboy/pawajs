@@ -13,15 +13,19 @@ export const templates=(el,notRender)=>{
         pawaWayRemover(comment,endComment)
         comment.remove(),endComment.remove();
     }
+    if (!endComment.parentElement) {
+        return
+    }
     endComment.parentElement.insertBefore(comment,endComment)
+    
     el._underControl=comment
     let element=[]
          Array.from(el.content.children).forEach((child) => {
              endComment.parentElement.insertBefore(child,endComment)
              element.push(child)  
          })
-        
+         
          element.forEach(child=>{
-            render(child,el._context,isResume?notRender:{ notRender: null, index: null }) 
-        })
+             render(child,el._context,isResume?notRender:{ notRender: null, index: null }) 
+            })
 }

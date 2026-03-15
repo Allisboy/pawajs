@@ -1,8 +1,8 @@
 {
   "name": "pawajs",
-  "version": "1.4.7",
+  "version": "1.4.11",
   "type":"module",
-  "description": "pawajs library (html runtime) for easily building web ui, enhancing html element, micro frontend etc ",
+  "description": "pawajs library (reactive web runtime) for easily building web ui, enhancing html element, micro frontend etc ",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
