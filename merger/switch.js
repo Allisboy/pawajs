@@ -105,9 +105,11 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                         keepContext(stateContext)
                     }
                       const number={notRender:null,index:null}
+                            let isIndex=0
                             children.forEach((value, index) => {
-                              number.index = index
-            if (number.notRender !== null && index <= number.notRender) return
+                              number.index = isIndex
+                              isIndex++
+                            if (number.notRender !== null && isIndex <= number.notRender) return
                               render(value,el._context,number)
                             })
                         stateContext._hasRun=true

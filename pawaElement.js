@@ -323,6 +323,13 @@ export class PawaElement {
       return
     }
     if (this._componentName) {
+      const hasPC=this._el.hasAttribute('p:c')
+      if (hasPC) {
+        Array.from(this._el.attributes).forEach(attr => {
+          if (attr.name.startsWith('c-') || attr.name === 'by') return
+           this._attributes.push({name:attr.name,value:attr.value})
+        });
+      } 
       const pawaAttribute=getPawaAttributes()
       const dependAttribute=getDependentAttribute()
       this._attributes.forEach((attr) => {

@@ -178,7 +178,8 @@ const mapsPlugins = {
     fullNamePlugin,
     externalPlugin,
     externalPluginMap,
-    primaryDirective
+    primaryDirective,
+    pawaAttributes,
 }
 export const pluginsMap = () => mapsPlugins
 export const escapePawaAttribute = new Set()
@@ -885,7 +886,10 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
                     getEndComment(isComment)
                 }
             } else if (isComment.nodeType === 1) {
-                children.push(isComment)
+                if( !isComment.hasAttribute('p:store')){
+                    isComment.setAttribute('by',id)
+                    children.push(isComment)
+                }
                 getEndComment(isComment)
             } else {
                 getEndComment(isComment)
@@ -898,7 +902,12 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
             // el has no previous Sibling
         }
         el.removeAttribute(attr.name)
-        const numberComponentChildren = notRender.index -2 + children.length
+        let numberComponentChildren 
+        if(notRender.index === 0){
+            numberComponentChildren =children.length 
+        }else{
+            numberComponentChildren = notRender.index + children.length -1
+        }
         notRender.notRender = numberComponentChildren
         resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
     }
@@ -1216,9 +1225,14 @@ export const render = (el, contexts = {}, notRender, isName) => {
             }
         }
         const number = { notRender: null, index: null }
+        let isIndex=0
         Array.from(el.children).forEach((child, index) => {
-            number.index = index
-            if (number.notRender !== null && index <= number.notRender) return
+             if (child.hasAttribute('p:store')) {
+            return
+          }
+            number.index = isIndex
+            isIndex++
+            if (number.notRender !== null && isIndex <= number.notRender) return
             render(child, context, number, isName)
         })
         el._callMount()

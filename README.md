@@ -5,7 +5,7 @@ pawajs - power the web (reactivity and html runtime)
 
 **A lightweight and reactive JavaScript library for building modern web interfaces with a simple, declarative syntax.**
 
-PawaJS is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering, PawaJS is equipped for performance and scalability.
+PawaJS (reactive web runtime) is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering using pawa-ssr (server rendering runtime) and pawajs-continue (continuous rendering), PawaJS is equipped for performance and scalability.
 
 🌐 **Website:** [pawajs.vercel.app](https://pawajs.vercel.app)
 
@@ -15,7 +15,7 @@ PawaJS is a JavaScript library designed for building dynamic user interfaces. It
 
 -   **Declarative Rendering:** Use a clean, HTML-based template syntax with powerful directives (`if`, `for-each`, `on-event`, etc.) to describe your UI.
 -   **Reactive State Management:** Effortlessly create reactive state that automatically updates the DOM when it changes using the `$state` utility.
--   **Component-Based Architecture:** Build encapsulated components that manage their own state, making your code more reusable and maintainable.
+-   **Component-Based Architecture:** Build encapsulated components with just js function that manage their own state, making your code more reusable and maintainable.
 -   **Async Components:** First-class support for asynchronous components, allowing you to fetch data directly within your component definition.
 -   **Efficient List Rendering:** Render lists of data with the `for-each` directive, including support for keyed updates for optimal performance.
 -   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
@@ -39,7 +39,7 @@ CDN
         </head>
     <body>
         <div id="app"></div>
-        <script type="module" src="https://cdn.jsdelivr.net/npm/pawajs@1.2.0/cdn/index.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/pawajs@latestVersion/index.js"></script>
         <script type="module">
             window.$pawa.pawaStartApp(document.getElementById('app'));
         </script>
@@ -276,18 +276,20 @@ For rendering lists from an array. Use `for-key` to give each element a unique i
 </ul>
 ```
 
-#### `on-<event>`
+#### `on-<event>..chainModifiers` 
+modifiers - 'self','prevent','once','capture' etc
 For handling DOM events.
 
 ```html
 <button on-click="addTodo()">Add Todo</button>
 <input on-input="newTodoText.value = e.target.value" />
 ```
-#### `out-<event>`
+#### `out-<event>.chainModifiers`
+modifiers - 'self','prevent','once','capture' etc
 For handling DOM events.
 
 ```html
-<button out-click="console.log('outside')">Add Todo</button>
+<button out-click.once="console.log('outside')">Add Todo</button>
 ```
 
 ### Component Props
