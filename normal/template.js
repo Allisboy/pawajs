@@ -1,4 +1,5 @@
 import {render} from '../index.js'
+import { pawaWayRemover } from '../utils.js'
 export const templates=(el,notRender)=>{
     if (el.hasAttribute('p:store')) {
         return
@@ -28,4 +29,5 @@ export const templates=(el,notRender)=>{
          element.forEach(child=>{
              render(child,el._context,isResume?notRender:{ notRender: null, index: null }) 
             })
+            el?._clearContext()
 }

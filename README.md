@@ -343,13 +343,13 @@ useValidateComponent(TodoList, {
 ### Core Functions
 -   `pawaStartApp(rootElement, initialContext)`: Initializes the PawaJS application on a given root DOM element.
 -   `RegisterComponent(...components)`: Registers one or more components to be used in templates.
--   `$state(initialValue, localStorageKey?)`: Creates a new reactive state object.
+-   `$state(initialValue, localStorageKey?)`: Creates a new reactive state object. Used inside or outside Component (module export)
 -   `PluginSystem(plugin)`: Registers a plugin to extend PawaJS functionality (e.g., Routers, Global Stores).
 -   `html`: A tagged template literal for syntax highlighting and potential future optimizations.
 
 ### Component Hooks
 -   `useInsert(object)`: Exposes data and functions from a component's setup to its template.
--   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change .
+-   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change . Used inside or outside Component 
 -   `useContext(contextObject)` & `setContext()`: A mechanism for providing and consuming data throughout a component tree.
 -   `useRef()`: Creates a reference object that can be attached to a DOM element using the `ref` directive.
 -   `useValidateComponent(Component, rules)`: Defines validation rules for a component's props.

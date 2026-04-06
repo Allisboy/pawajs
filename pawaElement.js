@@ -5,95 +5,37 @@ import PawaComponent from './pawaComponent.js';
 
 export class PawaElement {
   
+  #context
   /**
    * 
    * @param {HTMLElement} element 
    * @param {object} context 
    */
   constructor(element,context) {
-    /**
-       * @type{PawaElement|HTMLElement}
-       */
-    const div=document.createElement('div')
-    div.appendChild(element.cloneNode(true))
-    this._resetEffects=new Set()
-    this._context=context;
-    this._avoidPawaRender=element.hasAttribute('pawa-avoid');
-    this._el=element 
-    this._out=false;
-    this._stateContext=null
-    this._terminateEffects=new Set()
-    this._deleteEffects=this.terminateEffects
-    /**
-     * @type{HTMLAllCollection}
-     */
-    this._slots=document.createDocumentFragment()
-    this._mainAttribute={}
-    this._preRenderAvoid=[]
-    this._running=false
-    this._hasForOrIf=this.hasForOrIf
-    this._elementContent=element.textContent
-    this._textContent={}
-    this._attributes=[]
-    this._template=div.innerHTML;
-    this._exitAnimation=null;
-    this._component=null
-    this._unMountFunctions=[];
-    this._MountFunctions=[];
-    this._elementType=''
-    this._getNode=this.getNode
-    this._componentOrTemplate=false
-    this._props={}
-    this._isView=null
-    this._isElementComponent=false
-    this._pawaAttribute={}
-    this._setUnMount=this.setUnMounts
-    this._componentName=''
-    this._attrElement=this.getNewElementByRemovingAttr
-    this._attr={}
-    this._staticContext=[],
-    this._checkStatic=this.reCheckStaticContext
-    this._callMount=this.mount
-    this._callUnMOunt=this.unMount
-    this._remove=this.remove
-    this._componentChildren
-    this._pawaElementComponent=null
-    this._componentTerminate=null
-    this._cacheSetUp=false
-    this._effectsCarrier=null
-    this._pawaElementComponentName=''
-    this._reCallEffect=this.reCallEffect
-    this._ElementEffects=new Map()
-    this._deCompositionElement=false
-    this._restProps={}
-    this._kill=null
-    this._isKill=false
-    this._scriptFetching=element.hasAttribute('script')
-    this._scriptDone=false
-    this._underControl=null
-    this.safeEval=this.safeEval
-    /**
-     * @type{object}
-     */
-    this._reactiveProps={}
-    if (this._lazy) {
-      
-      this._componentOrTemplate=true
-    }
-    
-    if(this._avoidPawaRender){
+  this.#context=context
+    const div=element.cloneNode(true)
+    Object.assign(this, {
+      _resetEffects: new Set(), _context: context, _avoidPawaRender: element.hasAttribute('pawa-avoid'),
+      _el: element, _out: false, _stateContext: null, _terminateEffects: new Set(), _deleteEffects: this.terminateEffects,
+      _slots: document.createDocumentFragment(), _mainAttribute: {}, _preRenderAvoid: [], _running: false,
+      _hasForOrIf: this.hasForOrIf, _elementContent: element.textContent, _textContent: {}, _attributes: [],
+      _template: div.outerHTML, _exitAnimation: null, _component: null, _unMountFunctions: [], _MountFunctions: [],
+      _elementType: '', _getNode: this.getNode, _componentOrTemplate: false, _props: {}, _isView: null,
+      _isElementComponent: false, _pawaAttribute: {}, _setUnMount: this.setUnMounts, _componentName: '',
+      _attrElement: this.getNewElementByRemovingAttr, _attr: {}, _staticContext: [], _checkStatic: this.reCheckStaticContext,
+      _callMount: this.mount, _callUnmount: this.unMount, _remove: this.remove, _componentChildren: undefined,
+      _pawaElementComponent: null, _componentTerminate: null, _cacheSetUp: false, _effectsCarrier: null,
+      _pawaElementComponentName: '', _reCallEffect: this.reCallEffect, _ElementEffects: new Map(),
+      _deCompositionElement: false, _restProps: {}, _kill: null, _isKill: false, _scriptFetching: element.hasAttribute('script'),
+      _scriptDone: false, _underControl: null, safeEval: this.safeEval, _reactiveProps: {},
+      _clearContext:this.clearContext
+    })
+    if (this._lazy) this._componentOrTemplate = true
+    if(this._avoidPawaRender) {
       element.removeAttribute('pawa-avoid')
-      Array.from(element.children).forEach((child) => {
-        if (child.nodeType === 1) {
-          child.setAttribute('pawa-avoid','')
-        }
-      })
+      Array.from(element.children).forEach((child) => { if (child.nodeType === 1) child.setAttribute('pawa-avoid','') })
     }
-    this.setPawaAttr()
-    this.elementType()
-    this.setProps()
-    this.setAttri()
-    this.findPawaAttribute()
+    this.setPawaAttr(); this.elementType(); this.setProps(); this.setAttri(); this.findPawaAttribute()
   }
   
   static Element(element,context){
@@ -103,6 +45,7 @@ export class PawaElement {
   getChildrenTree(){
     return Array.from(this._el.children)
   }
+  
    safeEval(context,expression,directive,resolve=false){
   try{
     const keys = Object.keys(context);
@@ -224,8 +167,8 @@ export class PawaElement {
     if (typeof this._exitAnimation === 'function') {
       
      try {
-      const animate=this._exitAnimation().then(() => {
-         this._callUnMOunt()
+      const animate=this._exitAnimation().then(async () => {
+         await this._callUnmount()
           this._out = true
           this._el.remove()
           if (callback) {
@@ -235,10 +178,9 @@ export class PawaElement {
        return animate
      } catch (error) {
       console.error(error);
-      
      }
     } else {
-      this._callUnMOunt()
+      this._callUnmount()
           this._out=true
           this._el.remove()
           if (callback) {
@@ -260,7 +202,7 @@ export class PawaElement {
        if (child?._el) {
          child._out = true
          child._deleteEffects()
-         child._callUnMOunt()   
+         child._callUnmount()   
        }
      } else if (child.nodeType === 8) {
        if (child?._controlComponent) {
@@ -314,6 +256,11 @@ export class PawaElement {
     throw new Error(error);
     
    }
+  }
+  clearContext(){
+    if (!__pawaDev.tool) {
+      this._context={}
+    }
   }
   setProps(){
     if (this._avoidPawaRender) {

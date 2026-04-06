@@ -1,6 +1,6 @@
 import {propsValidator, setPawaDevError, pawaWayRemover, checkKeywordsExistence, sanitizeTemplate } from '../utils.js';
 import {PawaElement,PawaComment} from '../pawaElement.js';
-import {keepContext,render} from '../index.js'
+import {keepContext,render, HmrComponentMap } from '../index.js'
 import {createEffect} from '../reactive.js'
 export const normal_component=(el,stateContext,setStateContext,mapsPlugin,formerStateContext,pawaContext,stateWatch)=>{
     const compoBeforeCall=mapsPlugin.compoBeforeCall
@@ -79,6 +79,22 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     let compo 
     let awaits=false
     let suspense=''
+  
+    if (__pawaDev.tool) {
+      const id= crypto.randomUUID()
+      if (HmrComponentMap.has(stateContexts.component._filePath) && stateContexts.component._filePath) {
+        HmrComponentMap.get(stateContexts.component._filePath).push({id:id,template:el._template,el:el,stateContext:stateContexts})
+      }else{
+        HmrComponentMap.set(stateContexts.component._filePath,[{id:id,template:el._template,el:el,stateContext:stateContexts}])
+      }
+      el._setUnMount(()=>{
+        const array=HmrComponentMap.get(stateContexts.component._filePath)
+        if(array){
+          const index=array.findIndex(item => item.id === id)
+          if(index !== -1) array.splice(index,1)
+        }
+      })
+    }
       try {
         if(done){
         const compoCall=component.component(app)
@@ -102,7 +118,10 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
               childInsert(false)
               Promise.resolve().then(()=>{
-                lifeCircle()
+                lifecycle()
+                
+              }).finally(()=>{
+                el._clearContext()
               })
               storeContext._hasRun=true
               stateContext=null
@@ -132,6 +151,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     if (component?._insert) {
       Object.assign(el._context,component._insert)
     }
+    const context=el._context
        const propsSetter=()=>{   
     if(Object.entries(el._restProps).length > 0){
       const findElement=div.querySelector('[--]') || div.querySelector('[rest]')
@@ -178,17 +198,17 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
   
   if (child !== null ) {
     if (child) {
-      endComment.parentElement.insertBefore(child, endComment)
+      endComment.parentElement?.insertBefore(child, endComment)
     
     stateContexts?._error?.forEach((error) => {
       throw Error(error)
     })
-    render(child, el._context) 
+    render(child, context) 
       } 
     }
     }
-    childInsert(awaits?true:false);
-    const lifeCircle=()=>{
+    childInsert(!!awaits);
+    const lifecycle=()=>{
       Promise.resolve().then(()=>{
       el._component?._hook?.effect.forEach((hook) => {
         
@@ -226,7 +246,10 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       
     })
     }
-    if(awaits === false)lifeCircle()
+    if(awaits === false){
+      lifecycle()
+      el._clearContext()
+    }
     stateContexts._hasRun=true
     keepContext(stateContexts._formerContext)
     if (stateContexts._transportContext) {
@@ -235,5 +258,5 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     }
      stateContext=formerStateContext  
     __pawaDev.totalComponent++
-       
+      
 }

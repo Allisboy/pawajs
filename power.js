@@ -1,7 +1,7 @@
 import { createEffect } from './reactive.js';
 import { render, $state, keepContext,restoreContext} from './index.js';
 import { PawaComment, PawaElement } from './pawaElement.js';
-import { processNode, pawaWayRemover,getComment,getEndComment, safeEval, getEvalValues, setPawaDevError, checkKeywordsExistence } from './utils.js';
+import { processNode, pawaWayRemover,getComment,getEndComment, safeEval, getEvalValues, setPawaDevError, checkKeywordsExistence, evaluation } from './utils.js';
 import {normal_Switch} from './normal/Switch.js'
 import {normal_If} from './normal/If.js'
 import {normal_For} from './normal/For.js'
@@ -99,7 +99,7 @@ const checkKeyModifiers = (e, modifiers, eventType) => {
 };
 
 // Shared helper to execute event with debounce/throttle/error handling
-const processEventExecution = (el, attrName, modifiers, callback, eventType, directiveName) => {
+const processEventExecution = (el, attrName, modifiers, callback, eventType, directiveName,context) => {
     const execute = () => {
         try { callback(); } 
         catch (error) { setPawaDevError({ message: `Error from ${directiveName}-${eventType} directive ${error.message}`, error, template: el._template }); }
@@ -176,13 +176,19 @@ export const If = (el, attr, stateContext,resume=false,notRender,stopResume) => 
             let dataComment
             let id=attr.name.slice(5)
             const children=[]
-            const setComment=(c)=>comment=c
-            const setEndComment=(c)=>endComment=c
-            getComment(el,setComment,id)
-            getEndComment(comment,setEndComment,id,children)
-            const numberIfChildren=notRender.index + children.length - 2
-      notRender.notRender=numberIfChildren
-            resumer.resume_if?.(el,attr,stateContext,{comment,endComment,id,children})
+            try {
+                const setComment=(c)=>comment=c
+                const setEndComment=(c)=>endComment=c
+                getComment(el,setComment,id)
+                getEndComment(comment,setEndComment,id,children)
+                const numberIfChildren=notRender.index + children.length - 2
+          notRender.notRender=numberIfChildren
+                resumer.resume_if?.(el,attr,stateContext,{comment,endComment,id,children})
+                
+            } catch (error) {
+                console.log(error,el ,attr,id);
+                                
+            }
 
     }
 }
@@ -255,6 +261,7 @@ export const event = (el, attr, stateContext) => {
     if (el._running || checkKeywordsExistence(el._staticContext, attr.value)) {
         return
     }
+    const context = el._context
     
     const directive = attr.name.substring(3); // 'on-click.prevent' → 'click.prevent'
     const parts = directive.split('.');
@@ -262,21 +269,15 @@ export const event = (el, attr, stateContext) => {
     const modifiers = new Set(parts.slice(1));
 
     el.removeAttribute(attr.name)
-    const context = el._context
-    const keys = Object.keys(context);
-    const resolvePath = (path, obj) => {
-        return path.split('.').reduce((acc, key) => acc?.[key], obj);
+
+    const executeEvent = (e) => {
+        try {
+            const eventContext = { ...context, e };
+            evaluation(eventContext, attr.value);
+        } catch (error) {
+            __pawaDev.setError({ el: el, msg: error.message, stack: error.stack, directives: 'on-event' });
+        }
     };
-    const values = keys.map((key) => resolvePath(key, context));
-    
-    const func = new Function('e', ...keys, ` 
-    try{
-        ${attr.value}
-    }catch(error){
-        console.error(error.message, error.stack)
-        __pawaDev.setError({el: e.target, msg: error.message, stack: error.stack, directives: 'on-event'})
-    }
-    `)
     
     const handler = (e) => {
         if (!checkCommonModifiers(e, modifiers)) return;
@@ -297,7 +298,7 @@ export const event = (el, attr, stateContext) => {
         if (modifiers.has('stop')) e.stopPropagation();
         
         // ========== EXECUTION ==========
-        processEventExecution(el, attr.name, modifiers, () => func(e, ...values), eventType, 'on');
+        processEventExecution(el, attr.name, modifiers, () => executeEvent(e), eventType, 'on');
     };
 
     const options = {
@@ -315,10 +316,10 @@ export const event = (el, attr, stateContext) => {
     });
 }
 
-const createBoundCallback = (el, code) => {
-    const keys = Object.keys(el._context);
+const createBoundCallback = (el, code,context) => {
+    const keys = Object.keys(context);
     const resolvePath = (path, obj) => path.split('.').reduce((acc, key) => acc?.[key], obj);
-    const values = keys.map((key) => resolvePath(key, el._context));
+    const values = keys.map((key) => resolvePath(key, context));
     const func = new Function(...keys, code);
     return () => func(...values);
 };
@@ -326,7 +327,7 @@ const createBoundCallback = (el, code) => {
 export const mountElement = (el, attr) => {
     if (el._running) return;
     try {
-        const func = createBoundCallback(el, attr.value);
+        const func = createBoundCallback(el, attr.value,el._context);
         el._MountFunctions.push(func);
         el.removeAttribute(attr.name);
     } catch (error) {
@@ -341,7 +342,7 @@ export const mountElement = (el, attr) => {
 export const unMountElement = (el, attr) => {
     if (el._running) return;
     try {
-        const func = createBoundCallback(el, attr.value);
+        const func = createBoundCallback(el, attr.value,el._context);
         el._unMountFunctions.push(func);
         el.removeAttribute(attr.name);
     } catch (error) {
@@ -481,18 +482,15 @@ export const documentEvent = (el, attr) => {
     if (!eventType) return;
 
     el.removeAttribute(attr.name)
-    const keys = Object.keys(el._context);
-    const resolvePath = (path, obj) => {
-        return path.split('.').reduce((acc, key) => acc?.[key], obj);
-    };              
-    const func = new Function('e', '$element', ...keys, `
-    try{
-        ${attr.value}
-    }catch(error){
-        console.error(error.message, error.stack)
-        __pawaDev.setError({msg: error.message, stack: error.stack, directives: 'out-event'})
-    }`)
-    const values = keys.map((key) => resolvePath(key, el._context));
+
+    const executeOutEvent = (e) => {
+        try {
+            const eventContext = { ...el._context, e, $element: el };
+            evaluation(eventContext, attr.value);
+        } catch (error) {
+            __pawaDev.setError({ msg: error.message, stack: error.stack, directives: 'out-event' });
+        }
+    };
     
     const handler = (e) => {
         if (!checkCommonModifiers(e, modifiers)) return;
@@ -507,7 +505,7 @@ export const documentEvent = (el, attr) => {
         if (modifiers.has('stop')) e.stopPropagation();
         
         // ========== EXECUTION ==========
-        processEventExecution(el, attr.name, modifiers, () => func(e, el, ...values), eventType, 'out');
+        processEventExecution(el, attr.name, modifiers, () => executeOutEvent(e), eventType, 'out');
     }
 
     const options = {
@@ -592,7 +590,7 @@ export const Key = (el, attr, stateContext,resume=false,notRender,stopResume) =>
             let comment
             let endComment
             let dataComment
-            let id=attr.name.slice(10)
+            let id=attr.name.slice(6)
             const children=[]
             const setComment=(c)=>comment=c
             const setEndComment=(c)=>endComment=c

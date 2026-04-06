@@ -13,6 +13,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
     if (resume) {
         oldChain={id:caseValue.value}
     }
+    const context=el._context
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -23,12 +24,12 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                 func =new Map()
                 chained.forEach((item)=>{
                     if(item.condition === 'default')return
-                    let funcs=safeEval(el._context,item.exp,item.element)
+                    let funcs=safeEval(context,item.exp,item.element)
                     func.set(item.exp,funcs)
                 })
-                switchFunc=safeEval(el._context,attr.value,el)
+                switchFunc=safeEval(context,attr.value,el)
             }
-            const values = getEvalValues(el._context)
+            const values = getEvalValues(context)
             let current
             chained.forEach(element => {
                 if (current || element.condition === 'default') return
@@ -58,7 +59,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                 }
                 comment.data=`condition ${exp}`
                 parent.insertBefore(newElement, endComment)
-                render(newElement, el._context)
+                render(newElement, context)
                 stateContext._hasRun = true
             }
                 if (comment.nextSibling !== endComment && oldChain.id !== latestChain.id) {
@@ -98,7 +99,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                             }
                         }
                         
-                        if(firstEnter === false && resume && current){
+                        if(firstEnter === false && resume && oldChain.id !== latestChain.id){
                             el.removeAttribute(attr.name)
                          if (stateContext._hasRun) {
                         stateContext._hasRun = false
@@ -110,7 +111,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                               number.index = isIndex
                               isIndex++
                             if (number.notRender !== null && isIndex <= number.notRender) return
-                              render(value,el._context,number)
+                              render(value,context,number)
                             })
                         stateContext._hasRun=true
                 }
@@ -128,5 +129,6 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                  })
             }
         }
+        el?._clearContext()
         return evaluate
 }

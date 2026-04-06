@@ -13,6 +13,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
     if (resume) {
         oldChain={id:attr.value}
     }
+    const context=el._context
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -23,11 +24,11 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                 func =new Map()
                 chained.forEach((item)=>{
                     if(item.condition === 'else')return
-                    let funcs=el.safeEval(el._context,item.exp,'if')
+                    let funcs=el.safeEval(context,item.exp,'if')
                     func.set(item.exp,funcs)
                 })
             }
-            const values = getEvalValues(el._context)
+            const values = getEvalValues(context)
             let current
             chained.forEach(element => {
                 if (current || element.condition === 'else') return
@@ -57,7 +58,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                 }
                 comment.data=`condition ${exp}`
                 parent.insertBefore(newElement, endComment)
-                render(newElement, el._context)
+                render(newElement, context)
                 stateContext._hasRun = true
             }
                 if (comment.nextSibling !== endComment && oldChain.id !== latestChain.id) {
@@ -97,7 +98,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                             }
                         }
                         
-                        if(firstEnter === false && resume && current){
+                        if(firstEnter === false && resume && oldChain.id === latestChain.id){
                             el.removeAttribute(attr.name)
                          if (stateContext._hasRun) {
                         stateContext._hasRun = false
@@ -110,7 +111,7 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                               number.index = isIndex
                               isIndex++
                             if (number.notRender !== null && isIndex <= number.notRender) return
-                              render(value,el._context,number)
+                              render(value,context,number)
                             })
                         stateContext._hasRun=true
                 }
@@ -129,5 +130,6 @@ export const merger_if=(el,attr,stateContext,resume=false,{comment,endComment,ch
                  })
             }
         }
+        el?._clearContext()
         return evaluate
 }

@@ -17,14 +17,13 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
         }
         try {
             if (!func) {
-                func=el.safeEval(el._context, arrayName, 'for-each');
+                func=el.safeEval(context, arrayName, 'for-each');
             }
             let array = func(...getEvalValues(context))
             let update;
             if (!firstEnter) {
                 const div = document.createElement('div')
                 array.forEach((item, index) => {
-                    const context = el._context
                     const itemContext = {
                         [arrayItem]: item,
                         [indexes]: index,
@@ -94,7 +93,6 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                             })
                             Array.from(div.children).forEach((child, index) => {
                                 const key = child.getAttribute('for-key') || index
-                                const context = el._context
                                 const itemContext = {
                                     [arrayItem]: array[index],
                                     [indexes]: index,
@@ -151,7 +149,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
             }
             if (firstEnter && !resume) {
                 array.forEach((item, index) => {
-                    const context = el._context
+                    const context = context
                     const itemContext = {
                         [arrayItem]: item,
                         [indexes]: index,
@@ -190,7 +188,6 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                 const number={notRender:null,index:null}
                 elementArray.forEach((keyComment) => {
                     if(keyComment.nextElementSibling === null) return
-                    const context = el._context
                     const itemContext = {
                         [arrayItem]: array[keyComment._index],
                         [indexes]: keyComment._index,
@@ -206,9 +203,10 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                 message: `Error from For directive ${error.message}`,
                 error: error,
                 template: el._template,
-                el: el._el
+                el: el
             })
         }
     }
+    el?._clearContext()
     return evaluate
 }

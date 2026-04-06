@@ -1,6 +1,6 @@
 {
   "name": "pawajs",
-  "version": "1.4.17",
+  "version": "1.4.29",
   "type":"module",
   "description": "pawajs library (reactive web runtime) for easily building web ui, enhancing html element, micro frontend etc ",
   "main": "index.js",
@@ -24,6 +24,6 @@
   "bugs": {
     "url": "https://github.com/Allisboy/pawajs/issues"
   },
-  "homepage": "https://github.com/Allisboy/pawajs#readme",
+  "homepage": "https://pawajs.vercel.app",
   "website": "https://pawajs.vercel.app"
 }

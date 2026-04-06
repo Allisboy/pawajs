@@ -13,6 +13,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
     if (resume) {
         oldsate=old
     }
+    const context=el._context
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -21,9 +22,9 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
             let value=attr.value 
             let keyValue
             if (!func) {
-                func=el.safeEval(el._context,attr.value,'key')
+                func=el.safeEval(context,attr.value,'key')
             }
-            const values = getEvalValues(el._context)
+            const values = getEvalValues(context)
             let current
             
             if (!firstEnter) {
@@ -39,7 +40,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                 comment.data=`key ${latestState}`
                 endComment.data=`/ key ${latestState}`
                 parent.insertBefore(newElement, endComment)
-                render(newElement, el._context)
+                render(newElement, context)
                 stateContext._hasRun = true
             }
             latestState=func(...values) 
@@ -52,7 +53,7 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                             children.forEach((value, index) => {
                               number.index=index
                               if (number.notRender !== null && index <= number.notRender) return
-                              render(value,el._context,number)
+                              render(value,context,number)
                             })
                         stateContext._hasRun=true
                         once=true
@@ -100,5 +101,6 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                  })
             }
         }
+        el?._clearContext()
         return evaluate
 }

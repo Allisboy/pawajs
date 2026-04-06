@@ -1,3 +1,5 @@
+const evalCache = new Map();
+const templateFnCache = new Map();
 
 export const splitAndAdd = str => str.split('-').join('').toUpperCase();
 
@@ -55,12 +57,15 @@ export const extractContextValues = (context) => {
 
 export const evaluation=(context,exp) => {
     try {
-      const keys = Object.keys(context);
-const resolvePath = (path, obj) => {
-    return path.split('.').reduce((acc, key) => acc?.[key], obj);
-};
-const values = keys.map((key) => resolvePath(key, context));
-return new Function(...keys,`return ${exp}`)(...values)
+        const keys = Object.keys(context);
+        const cacheKey = `${keys.join(',')}:${exp}`;
+        
+        let fn = evalCache.get(cacheKey);
+        if (!fn) {
+            fn = new Function(...keys, `return ${exp}`);
+            evalCache.set(cacheKey, fn);
+        }
+        return fn(...getEvalValues(context));
     } catch (e) {
       throw e
     }
@@ -130,18 +135,19 @@ export const propsValidator=(obj={},propsAttri,name,template,el)=>{
 export const safeEval=(context,expression,el,resolve=false)=>{
   try{
     const keys = Object.keys(context);
-  const resolvePath = (path, obj) => {
-      return path.split('.').reduce((acc, key) => acc?.[key], obj);
-  };
+    const cacheKey = `${keys.join(',')}:${expression}`;
+
+    let fn = evalCache.get(cacheKey);
+    if (!fn) {
+        fn = new Function(...keys, `return ${expression}`);
+        evalCache.set(cacheKey, fn);
+    }
+
   if(resolve){
-    return new Function(...keys,`
-      return ${expression}
-      `)(...getEvalValues(context))
-  }else{
-    return new Function(...keys,`
-      return ${expression}    
-      `)
+    return fn(...getEvalValues(context))
   }
+  
+  return fn;
   
   }catch(error){
     setPawaDevError({
