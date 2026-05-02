@@ -56,8 +56,8 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                               render(value,context,number)
                             })
                         stateContext._hasRun=true
-                        once=true
-                }
+                    }
+                    once=true
                     // if(oldsate === latestState && firstEnter)return 
                     if (comment.nextSibling !== endComment && oldsate !== latestState) {
                         removePromise=pawaWayRemover(comment,endComment)
@@ -75,7 +75,20 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                         promised=true
                         
                     }
-                    if(!firstEnter && !resume){
+                    if (oldsate !== latestState && !firstEnter && resume) {
+                        Promise.resolve(removePromise).then(()=>{
+                            if (comment.nextSibling === endComment && oldsate !== latestState) {
+                                const newElement=el.cloneNode(true)
+                                 newElement.removeAttribute('key')
+                                 oldsate=latestState
+                                 setElement(newElement,latestState) 
+                            }
+                            promised=false
+                        })
+                        promised=true
+                        
+                    }
+                    if(!firstEnter){
                         if(oldsate === latestState)return
                         if (comment.nextSibling === endComment && oldsate !== latestState) {
                             const newElement=el.cloneNode(true)
@@ -83,8 +96,6 @@ export const merger_key=(el,attr,stateContext,resume=false,{comment,endComment,c
                             oldsate=latestState
                             setElement(newElement,latestState) 
                           }
-
-                    //         promised=false
                        }
                         
             

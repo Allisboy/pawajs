@@ -10,6 +10,7 @@ const serverInstance={
   accessChild:null,
   useServer:null,
   useAsync:null,
+  forwardPops:null
 }
 export const getServerInstance=()=>serverInstance
 export const setServer=(obj={})=>{

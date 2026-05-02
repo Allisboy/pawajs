@@ -52,7 +52,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                 }
             }
             const setElement=(newElement,exp)=>{
-                newElement.removeAttribute(exp)
+                newElement.removeAttribute(exp === 'default'?'s-default':exp)
                 if (stateContext._hasRun) {
                     stateContext._hasRun = false
                     keepContext(stateContext)
@@ -99,7 +99,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                             }
                         }
                         
-                        if(firstEnter === false && resume && oldChain.id !== latestChain.id){
+                        if(firstEnter === false && resume && oldChain.id === latestChain.id){
                             el.removeAttribute(attr.name)
                          if (stateContext._hasRun) {
                         stateContext._hasRun = false
@@ -109,7 +109,7 @@ export const merger_switch=(el,attr,stateContext,resume=false,{comment,endCommen
                             let isIndex=0
                             children.forEach((value, index) => {
                               number.index = isIndex
-                              isIndex++
+                              isIndex++ 
                             if (number.notRender !== null && isIndex <= number.notRender) return
                               render(value,context,number)
                             })

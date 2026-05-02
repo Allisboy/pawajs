@@ -1,6 +1,10 @@
-import {components,escapePawaAttribute,getPawaAttributes,getDependentAttribute,getPrimaryDirectives } from './index.js';
-import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues} from './utils.js';
+import {components,lazyComponents ,escapePawaAttribute,getPawaAttributes,getDependentAttribute,getPrimaryDirectives, pluginsMap } from './index.js';
+import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues, checkKeywordsExistence} from './utils.js';
 import PawaComponent from './pawaComponent.js';
+import { createIntersectionObserver } from './index.js';
+import { addLazyComponentElement } from './index.js';
+import { lazyComponentElement } from './index.js';
+
 
 
 export class PawaElement {
@@ -19,22 +23,23 @@ export class PawaElement {
       _el: element, _out: false, _stateContext: null, _terminateEffects: new Set(), _deleteEffects: this.terminateEffects,
       _slots: document.createDocumentFragment(), _mainAttribute: {}, _preRenderAvoid: [], _running: false,
       _hasForOrIf: this.hasForOrIf, _elementContent: element.textContent, _textContent: {}, _attributes: [],
-      _template: div.outerHTML, _exitAnimation: null, _component: null, _unMountFunctions: [], _MountFunctions: [],
+      _template: div.outerHTML, _exitAnimation: null, _component: null, _unMountFunctions: [], _MountFunctions: [],_beforeUnMountFunctions:[],
       _elementType: '', _getNode: this.getNode, _componentOrTemplate: false, _props: {}, _isView: null,
-      _isElementComponent: false, _pawaAttribute: {}, _setUnMount: this.setUnMounts, _componentName: '',
+      _isElementComponent: false, _pawaAttribute: {}, _setUnMount: this.setUnMounts, _componentName: '',_compoToSvg: false,_asChild: false,
       _attrElement: this.getNewElementByRemovingAttr, _attr: {}, _staticContext: [], _checkStatic: this.reCheckStaticContext,
       _callMount: this.mount, _callUnmount: this.unMount, _remove: this.remove, _componentChildren: undefined,
-      _pawaElementComponent: null, _componentTerminate: null, _cacheSetUp: false, _effectsCarrier: null,
+      _pawaElementComponent: null, _componentTerminate: null, _cacheSetUp: false, _effectsCarrier: null,_beforeUnMount:this.beforeUnMount,
       _pawaElementComponentName: '', _reCallEffect: this.reCallEffect, _ElementEffects: new Map(),
       _deCompositionElement: false, _restProps: {}, _kill: null, _isKill: false, _scriptFetching: element.hasAttribute('script'),
       _scriptDone: false, _underControl: null, safeEval: this.safeEval, _reactiveProps: {},
       _clearContext:this.clearContext
     })
-    if (this._lazy) this._componentOrTemplate = true
+    
     if(this._avoidPawaRender) {
       element.removeAttribute('pawa-avoid')
       Array.from(element.children).forEach((child) => { if (child.nodeType === 1) child.setAttribute('pawa-avoid','') })
     }
+    this.checkLazy()
     this.setPawaAttr(); this.elementType(); this.setProps(); this.setAttri(); this.findPawaAttribute()
   }
   
@@ -45,7 +50,14 @@ export class PawaElement {
   getChildrenTree(){
     return Array.from(this._el.children)
   }
-  
+  checkLazy(){
+    if (lazyComponents.has(splitAndAdd(this._el.tagName))) {
+      this._lazy=true
+      if (!lazyComponentElement.has(splitAndAdd(this._el.tagName))) {
+        createIntersectionObserver(this._el)
+      }
+    }
+  }
    safeEval(context,expression,directive,resolve=false){
   try{
     const keys = Object.keys(context);
@@ -85,8 +97,11 @@ export class PawaElement {
       const pawaAttr=this._el.getAttribute('p:c')
       const array=pawaAttr.split(';')
       array.forEach(value =>{
-        if(!this._el.hasAttribute(value)) return
-        this._attributes.push({name:value,value:this._el.getAttribute(value)})
+        if(!this._el.hasAttribute(value.toLowerCase())) {
+          return
+        }
+        this._attributes.push({name:value,value:this._el.getAttribute(value.toLowerCase())})
+        // console.log(this._el,this._attributes);
       })
     }else{
       this._attributes=Array.from(this._el.attributes)
@@ -160,10 +175,8 @@ export class PawaElement {
     }
   }
   async remove(callback){
-    if (typeof this._kill === 'function' && this._isKill && this._deCompositionElement) {
-      this._kill()
-      return
-    }
+    
+    await this._beforeUnMount()
     if (typeof this._exitAnimation === 'function') {
       
      try {
@@ -188,6 +201,15 @@ export class PawaElement {
           }
           return true
     }
+    if (typeof this._kill === 'function' && this._isKill && this._deCompositionElement) {
+      this._kill()
+      return
+    }
+  }
+  async beforeUnMount(){
+    this._beforeUnMountFunctions.forEach(func => {
+      func()
+    });
   }
  async unMount(){
  if (this._component && this._pawaElementComponentName === '') {
@@ -230,12 +252,13 @@ export class PawaElement {
     }
     const tag = this._el.tagName
    try {
-      if (components.has(splitAndAdd(tag))) {
+      if (components.has(splitAndAdd(tag)) || this._lazy) {
       this._elementType='component'
       this._componentOrTemplate=true
       this._deCompositionElement=true
       this._componentName=splitAndAdd(tag)
-      this._component=new PawaComponent(components.get(splitAndAdd(tag)))
+      const forLazy=()=>true
+      this._component=new PawaComponent(components.get(splitAndAdd(tag)) || forLazy)
       Array.from(this._el.children).forEach(slot =>{
         if (slot.tagName === 'TEMPLATE' && slot.getAttribute('prop') && !slot.hasAttribute('js')) {
           this._slots.appendChild(slot)
@@ -278,16 +301,58 @@ export class PawaElement {
         });
       } 
       const pawaAttribute=getPawaAttributes()
+      const {allowAsProp}=pluginsMap()
       const dependAttribute=getDependentAttribute()
       this._attributes.forEach((attr) => {
-        if (!attr.name.startsWith(':') && !pawaAttribute.has(attr.name) && !dependAttribute.has(attr.name)) {
+        if (attr.name === 'svg') {
+          this._compoToSvg = true
+          return
+        }else if(attr.name === 'aschild' || attr.name === 'as-child'){
+          this._asChild = true
+          return
+        }
+        if (!attr.name.startsWith(':') && (!pawaAttribute.has(attr.name) && !dependAttribute.has(attr.name) )) {
           let name=''
-                if (attr.name.startsWith('-')) {
-                  name=attr.name.slice(1)
-                } else {
-                  name=attr.name
+          if (attr.name.startsWith('-')) {
+            name=attr.name.slice(1)
+          } else {
+            name=attr.name
+          }
+          const context=this._context
+                const setProps=()=>{
+                 delete this._restProps[name]
+                 let value=attr.value
+                 if (value.includes('@{')) {
+                   const regex = /@{([^}]*)}/g;
+                 value = value.replace(regex, (match, expression) => {
+                     if (checkKeywordsExistence(this._staticContext, expression)) {
+                         return value
+                     } else {
+                         const res = this.safeEval(context, expression, 'props', true)
+                         return res
+                     }
+                 });
+                 return value
+                 }else if( attr.name.startsWith('on-') || attr.name.startsWith('out-') || attr.name === 'ref'){
+                  const res=this.safeEval(context,`(e)=>{
+                    ${attr.value}
+                  }`, 'props',true)
+                  return res
+                 }
+                 return attr.value
                 }
-                this._restProps[name]={name:name,value:attr.value}    
+                
+                if (this._props[name] || name === 'class' && this._props['className'] || name === 'defaultValue' && this._props['defaultValue']) return
+                name=name.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                if (name === 'class') {
+                  this._props['className']=setProps
+                }else if(name === 'default'){
+                  this._props['defaultValue']=setProps
+                }else{
+                  this._props[name]=setProps
+                }
+                
+                this._restProps[attr.name]={name:attr.name,value:attr.value} 
        }else if(!pawaAttribute.has(attr.name) && attr.name.startsWith(':')){
         
         const propsName=attr.name.slice(1) 

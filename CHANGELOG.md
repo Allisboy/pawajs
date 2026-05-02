@@ -14,3 +14,6 @@ CHANGELOG.md
 + version 1.4.26 - fixed key getcomment id
 + version 1.4.27 - fixed __pawaDev Tools,
 + version 1.4.28 - fixed pawaElement checkStaticsContext
++ version 1.4.30 - removed console warn from useContext
++ version 1.4.31- 1.4.32 - tried updating key to add element when server key is different
++ version 1.4.33 - added registerComponent.lazy

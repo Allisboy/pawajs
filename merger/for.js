@@ -11,6 +11,8 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
     let func
     let context=el._context
     const keyOrder=keyOrders || new Map()
+    let noKey
+    let array
     const evaluate = () => {
         if (endComment.parentElement === null) {
             el._deleteEffects()
@@ -19,7 +21,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
             if (!func) {
                 func=el.safeEval(context, arrayName, 'for-each');
             }
-            let array = func(...getEvalValues(context))
+             array = func(...getEvalValues(context))
             let update;
             if (!firstEnter) {
                 const div = document.createElement('div')
@@ -50,9 +52,12 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                         keyComment._index = lookLike.getAttribute('data-for-index')
                     }
                     if (!el.getAttribute('for-key')) {
+                        noKey=true
+                        lookLike=true
                         return
                     }
                     if(lookLike) return
+                    
                     if (lookLike === null) {
                         elementArray.delete(keyComment) 
                         
@@ -79,14 +84,15 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                     let indexKey=0
                     keyOrder.forEach((value,key)=>{
                         if(update)return;
-                        if(div.children[indexKey].getAttribute('data-for-index') !== key){
+                        if(div.children[indexKey]?.getAttribute('data-for-index') && indexKey !== key){
                             update=true
                         }
+                        indexKey++
                     })
                 }
                  const next = () => Promise.all(removeElement).then(async (res) => {
                      if (res) {
-                        if (update) {
+                        if (update && !noKey) {
                             const keyMap = new Map()
                             elementArray.forEach(child => {
                                 keyMap.set(child._forKey, child)
@@ -181,22 +187,7 @@ export const merger_for = (el, stateContext, attr, arrayName, arrayItem, indexes
                     stateContext._hasRun = true
                     elementArray.add(keyComment)
                 })
-
-            } else {
-                if(!resume)return
-                if(once)return
-                const number={notRender:null,index:null}
-                elementArray.forEach((keyComment) => {
-                    if(keyComment.nextElementSibling === null) return
-                    const itemContext = {
-                        [arrayItem]: array[keyComment._index],
-                        [indexes]: keyComment._index,
-                        ...context
-                    }
-                    render(keyComment.nextElementSibling, itemContext,{notRender:false,index:null})
-                })
-                once=true
-            }
+            } 
             firstEnter = false
         } catch (error) {
             setPawaDevError({

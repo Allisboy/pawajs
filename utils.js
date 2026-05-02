@@ -176,7 +176,12 @@ export const sanitizeTemplate = (temp) => {
 };
 
 export const ComponentProps=(somes,message,name,key)=>{
-let some=somes?.() || somes
+let some
+  if (typeof somes === 'function') {
+    some=somes()
+  }else{
+    some=somes
+  }
     return({
     Array:()=>{
 

@@ -75,6 +75,7 @@ const startsWithSet = new Set()
 const fullNamePlugin = new Set()
 const externalPlugin = {}
 const externalPluginMap = new Map()
+const allowAsProp= new Set()
 let pawaAttributes = new Set()
 let primaryDirective = new Set()
 
@@ -90,6 +91,7 @@ const mapsPlugins = {
     externalPluginMap,
     primaryDirective,
     pawaAttributes,
+    allowAsProp
 }
 export const pluginsMap = () => mapsPlugins
 export const escapePawaAttribute = new Set()
@@ -120,7 +122,8 @@ const applyMode = (mode, callback) => {
         }
     }
     /**
-     * @typedef {{startsWith:string,mode:null |'client'|'server',dependency:Array<string>,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
+     * @typedef {{startsWith:string,mode:null |'client'|'server',dependency:Array<string>,
+     * allowAsProp:boolean,fullName:string,plugin:(el:HTMLElement | PawaElement,attr:object)=>void}} AttriPlugin
      */
     /**
      * @typedef {{
@@ -155,8 +158,12 @@ func.forEach(fn => {
                     dependentPawaAttribute.add(dp); extPluginArray.push(dp)
                 })
             }
+
             const name = attrPlugins.fullName || attrPlugins.startsWith, set = attrPlugins.fullName ? fullNamePlugin : startsWithSet
             if (pawaAttributes.has(name)) { console.warn(`attribute plugin already exist ${name}`); return }
+            if (attrPlugins?.allowAsProp) {
+                allowAsProp.add(name)
+            }
             applyMode(attrPlugins?.mode, () => {
                 pawaAttributes.add(name); set.add(name); externalPlugin[name] = attrPlugins.plugin
                 if (extPluginArray.length) externalPluginMap.set(name, extPluginArray)
@@ -177,6 +184,7 @@ export const keepContext = (context) => {
 
 }
 export const components = new Map()
+export const lazyComponents=new Map()
     /**
      * @type {PawaComponent}
      */
@@ -226,14 +234,23 @@ const setPrimaryAttibute = (...name) => {
 
 export const getPrimaryDirectives=()=>primaryDirective
 
-setPrimaryAttibute('if', 'else-if', 'for-each', 'else','switch','case','default','case','key')
+setPrimaryAttibute('if', 'else-if', 'for-each', 'else','switch','case','s-default','key')
 setPawaAttributes('if', 'else-if', 'for-each', 'else', 'mount',
-    'unmount', 'forKey', 'state-', 'on-', 'out-','key','switch','case','default')
+    'unmount', 'forKey', 'state-', 'on-', 'out-','key','switch','case','s-default')
 export const getDependentAttribute = () => dependentPawaAttribute
 export const getPawaAttributes = () => {
     return pawaAttributes
 }
-
+let laziler
+export const lazyComponentElement=new Map()
+export const addLazyComponentElement=(element,func)=>{
+    const tagName=splitAndAdd(element.tagName)
+    if (lazyComponentElement.has(tagName)) {
+        lazyComponentElement.get(tagName).push({element:element,func})
+    }else{
+        lazyComponentElement.set(tagName, [{element:element,func}])
+    }
+}
 /**
  * 
  * @param  {...()=>string|null} component 
@@ -265,6 +282,73 @@ export const RegisterComponent = (...args) => {
             console.warn('Component registration failed: Component must be a named function. This might happen in production builds without the pawajs Vite plugin.');
         }
     });
+}
+export const createIntersectionObserver = (element, observeBy) => {
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const tagName = splitAndAdd(element.tagName);
+                const lazyData = lazyComponents.get(tagName);
+                
+                if (!lazyData) return;
+
+                lazyData.component().then(res => {
+                    const compoFunc = res[lazyData.name];
+                    if (!compoFunc) return;
+
+                    components.set(tagName, compoFunc);
+                    lazyComponents.delete(tagName);
+
+                    const instances = lazyComponentElement.get(tagName) || [];
+                    while (instances.length > 0) {
+                        const { element: el, func } = instances.shift();
+                        if (el) {
+                            if (el._component){
+                              el._component.component = compoFunc;
+                              el._component.validPropRule=compoFunc?.validateProps || {}
+                            } 
+                            
+                            keepContext(el._stateContext);
+                            el._stateContext._hasRun = false;
+                            func(); 
+                            el._stateContext._hasRun = true;
+                        }
+                    }
+                    lazyComponentElement.delete(tagName)
+                    observer.disconnect();
+                }).catch(err => console.error(`Lazy load failed for ${tagName}:`, err));
+            }
+        });
+    }, { rootMargin: '100px' }); 
+
+    observer.observe(observeBy || element);
+    return observer;
+}
+RegisterComponent.lazy=async(...args)=>{
+    if (typeof args[0] === 'string') {
+        for (let i = 0; i < args.length; i += 2) {
+            const name = args[i];
+            const component = args[i + 1];
+            if (components.has(name.toUpperCase())) return
+            if (typeof name === 'string' && typeof component === 'function') {
+                if (isServer()) {
+                    lazyComponents.set(name.toUpperCase(), {name,component});
+                   const compo=await component()
+                   if (compo[name]) {
+                       components.set(name.toUpperCase(),compo[name]) 
+                   }else{
+                    console.log(`component name doesn't matched the export ${name}`);
+                   }
+                }else{
+                    lazyComponents.set(name.toUpperCase(), {name,component});
+                }
+            } else {
+                console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string, function).');
+                break;
+            }
+        }
+        return;
+    }
 }
 
 /**
@@ -331,13 +415,13 @@ export const RegisterComponent = (...args) => {
                         }
                     },{
                         _terminateEffects:terminateEffect
-                    })
+                    },)
                     if (terminateEffect.size > 0) {
                         window.addEventListener('beforeunload',()=>{
                             terminateEffect.forEach(fn =>{
                                 fn()
                             })
-                        })
+                        },deps?.update)
                     }
                 }
             } else if (Array.isArray(deps)) {
@@ -428,10 +512,7 @@ export const useContext = (context) => {
         if (stateContext?._transportContext[context.id]) {
             const contexts = stateContext._transportContext[context.id]
             return contexts
-        } else {
-            console.warn('this component not in the context tree')
-        }
-
+        } 
     } else {
         return serverInstance.useContext?.(context)
     }
@@ -515,6 +596,14 @@ export const isResume = () => {
             return false
         }
     }
+export const forwardProps=(props={})=>{
+    if (client) {
+        if (isResume())return
+        stateContext._restProps=Object.entries(props).length > 0 ? props : {bPAr:''}
+    }else{
+        return serverInstance.forwardProps?.(props)
+    }
+}
     /**
      * Insert into the html context in component
      * @param {object} obj 
@@ -534,6 +623,20 @@ export const useInsert = (obj = {}) => {
     }
 }
 const createDeepProxy = (target, callback) => {
+    // Skip proxies for DOM objects and native objects that don't work well with proxies
+    if (target instanceof FileList) return target
+    if (target instanceof File) return target
+    if (target instanceof Blob) return target
+    if (target instanceof FormData) return target
+    if (target instanceof Date) return target
+    if (target instanceof RegExp) return target
+    
+    // Also skip if it's already a proxy
+    if (target && target._isPawaProxy) return target
+    
+    // Also skip if it's a DOM element
+    if (target && target.nodeType && typeof target === 'object') return target
+    
     return new Proxy(target, {
         get(target, property) {
             const value = target[property];
@@ -569,6 +672,7 @@ export const setStateContext = (context) => {
     stateContext._serializedData={}
     stateContext._formerContext = formerStateContext
     stateContext._reactiveProps = {}
+    stateContext._restProps={}
     stateContext._template = ''
     stateContext._resume = false
     stateContext._suspense=''
@@ -754,22 +858,30 @@ export const restoreContext = (state_context) => {
         stateContext = state_context._formerContext
     }
 export const HmrComponentMap=new Map()
+const renderedComponentsRusumed=new Set()
     /**
      * 
      * @param {PawaElement|HTMLElement} el 
      * @returns null
      */
 const component = (el, resume = false, attr, notRender, stopResume) => {
-    if (el._running) {
+    if (el._running || (resume && renderedComponentsRusumed.has(attr.value))) {
         return
     }
     el._running = true
     
     if (!resume) {
-        normal_component(el, stateContext, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch)
+        if (el._lazy) {
+            // pas the normal component to lazy handler
+            el.style.opacity=0
+            addLazyComponentElement(el,()=>normal_component(el, stateContext, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch))
+            return
+        }else{
+            normal_component(el, stateContext, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch)
+        }
     } else {
         stopResume.stop = true
-        let name
+        let name=''
         let comment
         let endComment
         const children = []
@@ -825,7 +937,18 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
             numberComponentChildren = notRender.index + children.length -1
         }
         notRender.notRender = numberComponentChildren
-        resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
+        renderedComponentsRusumed.add(attr.value)
+        
+        if (lazyComponents.has(name.toUpperCase())) {   
+            const trackElement=document.createElement(name)
+            trackElement._stateContext=el._stateContext 
+            addLazyComponentElement(trackElement,()=>resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children }))     
+              if (lazyComponentElement.has(name.toUpperCase())) {
+                createIntersectionObserver(trackElement,el)
+              }
+            }else{
+                resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
+            }
     }
 }
 
@@ -891,7 +1014,9 @@ const mainAttribute = (el, exp) => {
                 el.value = value;
                 el.setAttribute(exp.name, value);
             } else {
-                if (exp.name === 'class' && !enter) {
+                if ((exp.name === 'class' || exp.name === 'style') && enter) {
+                    console.log('entered',enter);
+                    
                     requestAnimationFrame(()=>{
                     el.setAttribute(exp.name, value);
                     })
@@ -985,7 +1110,7 @@ const directives = {
     'for-each': For,
     else:(el)=>{el._running =true},
     case:(el)=>{el._running =true},
-    default:(el)=>{el._running =true},
+    "s-default":(el)=>{el._running =true},
     'else-if':(el)=>{el._running =true},
     mount: mountElement,
     unmount: unMountElement,
@@ -1031,11 +1156,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
         }
     }
 
-    if (Array.from(el.childNodes).some(node =>
-            node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@{')
-        ) && !el._avoidPawaRender) {
-        textContentHandler(el, isName)
-    }
+    
     let startAttribute = false
     const startObject = {}
         //get startsWith plugin
@@ -1051,27 +1172,31 @@ export const render = (el, contexts = {}, notRender, isName) => {
             })
         })
         const number = { notRender: null }
+        const isAcomponent=el._componentName?true:false
+        
         el._attributes.forEach(attr => {
 
             if (stopResume.stop || el._hasRun) return
             if (directives[attr.name]) {
                 directives[attr.name](el, attr, stateContext)
-            } else if (attr.name.startsWith('on-')) {
+            } else if (attr.name.startsWith('on-') && !isAcomponent) {
                 event(el, attr, stateContext)
             } else if (attr.value.includes('@{') && !attr.name.startsWith('c-at-')) {
                 mainAttribute(el, attr, isName)
             } else if (attr.name.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
-            } else if (attr.name.startsWith('out-')) {
+            } else if (attr.name.startsWith('out-') && !isAcomponent) {
                 documentEvent(el, attr)
-            } else if (attr.name.startsWith('after-[') && attr.name.endsWith(']')) {
+            } else if (attr.name.startsWith('after-[') && attr.name.endsWith(']') && !isAcomponent) {
                 After(el, attr)
             } 
-             else if (attr.name.startsWith('every-[') && attr.name.endsWith(']')) {
+             else if (attr.name.startsWith('every-[') && attr.name.endsWith(']') && !isAcomponent) {
                 Every(el, attr)
             } 
             else if (attr.name.startsWith('c-c-')) {
                 stopResume.stop = true
+            
+                
                 component(el, true, attr, notRender, stopResume)// component continuity
             } else if (attr.name.startsWith('c-at-')) {
                 resumer.resume_attribute?.(el, attr, notRender) //attribute continuity
@@ -1080,11 +1205,11 @@ export const render = (el, contexts = {}, notRender, isName) => {
             } else if (attr.name.startsWith('c-t')) {//text continuity
                 resumer.resume_text(el, attr, isName)
             } else if (attr.name.startsWith('c-if-')) {
-                directives['if'](el, attr, stateContext, true, notRender, stopResume) // condition continuity
+                directives['if'](el, attr, stateContext, true, notRender, stopResume) 
             } else if (attr.name === 'c-for') {
-                directives['for-each'](el, attr, stateContext, true, notRender, stopResume) // for-each continuity
+                directives['for-each'](el, attr, stateContext, true, notRender, stopResume)
             }else if (attr.name.startsWith('c-key-')) {
-                directives['key'](el, attr, stateContext, true, notRender, stopResume)// key continuity
+                directives['key'](el, attr, stateContext, true, notRender, stopResume)
             }  
             else if (attr.name.startsWith('c-sw-')) {
                 directives['switch'](el, attr, stateContext, true, notRender, stopResume)// switch continuity
@@ -1120,7 +1245,13 @@ export const render = (el, contexts = {}, notRender, isName) => {
 
         })
     }
+
     if (stopResume.stop) return
+    if (Array.from(el.childNodes).some(node =>
+            node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@{')
+        ) && !el._avoidPawaRender) {
+        textContentHandler(el, isName)
+    }
     if (el._componentName && !el._avoidPawaRender) {
         component(el)
         return

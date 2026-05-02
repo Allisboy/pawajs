@@ -27,6 +27,10 @@ function scheduleRenderWithTimeBudget() {
 
     for (const fn of scheduled) {
       const cleanUp = fn();
+      if (fn?._sideEffect) {
+        const cleared=fn?._sideEffect?.()
+        if(typeof cleared === 'function')cleared()
+      }
       if (typeof cleanUp === 'function') cleanUp();
       processed.push(fn);
       if (performance.now() - start > FRAME_BUDGET) {
@@ -75,7 +79,7 @@ export const queueEffect = (effect,depsMap) => {
 };
   
   // Add parent tracking to effects
-  export const createEffect = (fn, el) => {
+  export const createEffect = (fn, el,update=null) => {
     const effect = () => {
         activeEffect = effect;
         effect.el = el;
@@ -86,6 +90,8 @@ export const queueEffect = (effect,depsMap) => {
           return cleanUp
         }
     };
+    update?.()
+    effect._sideEffect=update
     effect._id=crypto.randomUUID()
     effect._done=false
     effect._dep=null
@@ -117,7 +123,7 @@ if (el) {
       // console.log(el,effect._dep);
   }
   
-  el._terminateEffects.add(deletes)
+  el?._terminateEffects.add(deletes)
   
 }
     return effect;
@@ -131,6 +137,7 @@ export const track = (target, key) => {
     
     let depsMap = targetMap.get(target);
     if (!depsMap) {
+      
       targetMap.set(target, (depsMap = new Map()));
     }
     let dep = depsMap.get(key);

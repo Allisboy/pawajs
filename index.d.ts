@@ -10,6 +10,7 @@ export interface PawaElement extends HTMLElement {
     _terminateEffects: Set<Function>;
     _deleteEffects: () => void;
     _slots: DocumentFragment;
+    _stateContext: any;
     _mainAttribute: Record<string, any>;
     _preRenderAvoid: string[];
     _lazy: boolean;
@@ -74,6 +75,7 @@ export interface PawaElement extends HTMLElement {
     mount(): void;
     elementType(): void;
     setProps(): void;
+    safeEval(context: any, expr: string, error?: string, element?: boolean): any;
 }
 
 export interface PawaComment extends Comment {
@@ -157,6 +159,9 @@ export function pluginsMap(): {
     fullNamePlugin: Set<string>;
     externalPlugin: Record<string, Function>;
     externalPluginMap: Map<string, string[]>;
+    primaryDirective: Set<string>;
+    pawaAttributes: Set<string>;
+    allowAsProp: Set<string>;
 };
 
 export const escapePawaAttribute: Set<string>;
@@ -178,6 +183,19 @@ export function keepContext(context: any): void;
 
 export const components: Map<string, Function>;
 
+export const lazyComponents: Map<string, any>;
+
+/**
+ * Internal registry for tracking elements awaiting lazy component loading.
+ */
+export const lazyComponentElement: Map<string, { element: PawaElement; func: Function }[]>;
+
+export function addLazyComponentElement(element: PawaElement, func: Function): void;
+
+export function createIntersectionObserver(element: HTMLElement, observeBy?: HTMLElement): IntersectionObserver;
+
+export const HmrComponentMap: Map<string, any>;
+
 export function getCurrentContext(): any;
 
 export function setPawaAttributes(...attr: string[]): void;
@@ -193,6 +211,13 @@ export function getPrimaryDirectives(): Set<string>;
  * @param {...(string | Function)} args - Component functions or (name, function - done by pawajs-vite-plugin automaticly) pairs.
  */
 export function RegisterComponent(...args: (string | Function)[]): void;
+
+export namespace RegisterComponent {
+    /**
+     * Registers components lazily. The component's bundle is only fetched when the element enters the viewport.
+     */
+    export function lazy(...args: (string | Function)[]): Promise<void>;
+}
 
 /**
  * Runs a side effect or lifecycle hook.
@@ -272,6 +297,12 @@ export function useAsync(): { $async: <T>(callback: () => T) => T ,onSuspense:(h
 export function isResume(): boolean;
 
 /**
+ * Forwards props to the child component.
+ * @param {Record<string, any>} [props] - Props to forward.
+ */
+export function forwardProps(props?: Record<string, any>): void;
+
+/**
  * Exposes variables to the template scope.
  * @param {Record<string, any>} [obj] - Variables to expose.
  */
@@ -328,7 +359,10 @@ declare const Pawa: {
     setContext: typeof setContext;
     $state: typeof $state;
     pawaStartApp: typeof pawaStartApp;
+    useAsync: typeof useAsync;
+    useInnerContext: typeof useInnerContext;
     RegisterComponent: typeof RegisterComponent;
+    forwardProps: typeof forwardProps;
     runEffect: typeof runEffect;
     html: typeof html;
 };

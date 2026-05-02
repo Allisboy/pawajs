@@ -222,7 +222,7 @@ export const Switch = (el, attr, stateContext,resume=false,notRender,stopResume)
                                 chainMap.set(nextSibling.getAttribute('case'),{condition:'case',element:nextSibling})
                                 getChained(nextSibling.nextElementSibling)
                                 nextSibling.remove()
-                            }else if (nextSibling.getAttribute('default') === '') {
+                            }else if (nextSibling.getAttribute('s-default') === '') {
                                 chained.push({
                                     exp:'false',
                                     condition:'default',
@@ -388,7 +388,7 @@ export const For = (el, attr, stateContext,resume=false,notRender,stopResume) =>
 
 export const ref = (el, attr) => {
     el._checkStatic() 
-    if (el._running || checkKeywordsExistence(el._staticContext,attr.value)) {
+    if (el._running || checkKeywordsExistence(el._staticContext,attr.value) || el._componentName) {
         return
     }
     try {
@@ -519,26 +519,29 @@ export const documentEvent = (el, attr) => {
     const unMount = () => target.removeEventListener(eventType, handler, options);
     el._setUnMount(unMount)
 }
-export const exitTransition=(el,attr)=>{
-if (el._running) {
-    return
-}
-    el._exitAnimation=()=>{
-        return new Promise((resolve)=>{
-            requestAnimationFrame(()=>{
-                const animations =el.getAnimations({subtree:false})
-                if (animations.length === 0) {
-                    resolve()
-                    return
-                }
-                
-                Promise.all(animations.map(a=>a.finished)).then(resolve).catch(resolve)
-            })
-        })
-     }
-     el.removeAttribute(attr.name)
-}
 
+export const exitTransition = (el, attr) => {
+    if (el._running || el._componentName) {
+        return
+    }
+    const maxWait = 5000  // 5 seconds max
+   const promise = (resolve, startTime = Date.now()) => {
+        setTimeout(() => {
+            const animations = el.getAnimations({ subtree: false })
+            if (animations.length === 0 ) {
+                resolve()
+                return
+            }
+            Promise.all(animations.map(a => a.finished))
+                .then(() => promise(resolve, startTime))
+                .catch(() => promise(resolve, startTime))
+        }, 50)
+}
+    el._exitAnimation = () => {
+        return new Promise(promise)
+    }
+    el.removeAttribute(attr.name)
+}
 const createTimedExecutable = (el, attr, useInterval) => {
     if (el._running) return;
     const getTime = attr.name.match(/\[(.*?)\]/)[1];

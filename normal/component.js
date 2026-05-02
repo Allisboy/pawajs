@@ -1,4 +1,4 @@
-import {propsValidator, setPawaDevError, pawaWayRemover, checkKeywordsExistence, sanitizeTemplate } from '../utils.js';
+import {propsValidator, setPawaDevError, pawaWayRemover, checkKeywordsExistence, sanitizeTemplate, splitAndAdd } from '../utils.js';
 import {PawaElement,PawaComment} from '../pawaElement.js';
 import {keepContext,render, HmrComponentMap } from '../index.js'
 import {createEffect} from '../reactive.js'
@@ -61,7 +61,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
             console.error(error.message)
           }
         } 
-        const div = document.createElement('div')
+        let div =el._compoToSvg?document.createElementNS('http://www.w3.org/2000/svg', 'svg'): document.createElement('div')
     el._componentTerminate=() => {
         comment._terminateByComponent(endComment)
     }
@@ -151,15 +151,55 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     if (component?._insert) {
       Object.assign(el._context,component._insert)
     }
+    const restProps={}
+    if (Object.entries(stateContexts._restProps).length > 0) {
+      const props=el._restProps
+      if (stateContexts._restProps['className'] && props['class']) {
+        restProps['class']={...props['class']}
+      }
+      if (stateContexts._restProps['defaultValue'] && props['default']) {
+        restProps['default']={...props['default']}
+      }
+
+      for (const key in props) {
+        let name=key
+        name=name.replace(/-([a-z])/g, (g) => g[1].toUpperCase());        
+        if (stateContexts._restProps[name]) {
+          restProps[key]={...props[key]}
+        }
+      }
+    }else{
+      Object.assign(restProps,el._restProps)
+    } 
     const context=el._context
-       const propsSetter=()=>{   
-    if(Object.entries(el._restProps).length > 0){
-      const findElement=div.querySelector('[--]') || div.querySelector('[rest]')
+    const getAsChild=()=>{
+      const asChild=div.firstElementChild
+      if (splitAndAdd(asChild?.tagName|| '') === 'ASCHILD') {
+        const getChildren=asChild.firstElementChild
+        Array.from(asChild.attributes).forEach(attr=>{
+          if (getChildren.hasAttribute(attr.name)) {
+            let attrName=getChildren.getAttribute(attr.name)
+            attrName=attr.value +' '+attrName
+            getChildren.setAttribute(attr.name, attrName)
+          }else{
+            getChildren.setAttribute(attr.name, attr.value)
+          }
+        })
+        asChild.remove()
+        div.appendChild(getChildren)        
+      }
+    }
+       const propsSetter=()=>{  
+        getAsChild() 
+         const findElement=div.querySelector('[--]') || div.querySelector('[rest]')
+         if (findElement) {
+        findElement.removeAttribute('--')
+        findElement.removeAttribute('rest')
+        }
+    if(Object.entries(restProps).length > 0){
       if (findElement) {
-        for (const [key,value] of Object.entries(el._restProps)) {
+        for (const [key,value] of Object.entries(restProps)) {
             findElement.setAttribute(value.name,value.value)
-            findElement.removeAttribute('--')
-            findElement.removeAttribute('rest')
           }
         }
       }
@@ -181,7 +221,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
             bfm._sent=true
      const result= bfm(comment)
      if (typeof result === 'function') {
-       el._unMountFunctions.push(result)
+       el._beforeUnMountFunctions.push(result)
      }
     })
     
@@ -228,7 +268,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
           if (hook.deps?.component) {
             createEffect(() => {
               return effect()
-            },el) 
+            },el,hook.deps?.update) 
           } else {
             createEffect(() => {
               return effect()
