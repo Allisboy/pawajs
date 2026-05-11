@@ -212,8 +212,8 @@ export class PawaElement {
     });
   }
  async unMount(){
- if (this._component && this._pawaElementComponentName === '') {
-   this._componentTerminate()
+ if (this._component) {
+   this?._componentTerminate?.()
  } else {
       this._unMountFunctions.forEach(func => {
      func()
@@ -477,7 +477,7 @@ export class PawaComment {
   remove(){
     const comment=this._el
     if (comment._controlComponent) {
-      
+      comment._componentElement?._beforeUnMount?.()
       comment?._componentElement?._unMountFunctions.forEach(unMount =>{
         unMount()
       })

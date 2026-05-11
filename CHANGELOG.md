@@ -17,3 +17,5 @@ CHANGELOG.md
 + version 1.4.30 - removed console warn from useContext
 + version 1.4.31- 1.4.32 - tried updating key to add element when server key is different
 + version 1.4.33 - added registerComponent.lazy
++ version 1.4.33 -1.4.42 fixing lazy registration component
++ version 1.5.1 stable

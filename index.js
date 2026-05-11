@@ -324,31 +324,37 @@ export const createIntersectionObserver = (element, observeBy) => {
     observer.observe(observeBy || element);
     return observer;
 }
-RegisterComponent.lazy=async(...args)=>{
-    if (typeof args[0] === 'string') {
+RegisterComponent.lazy=(...args)=>{
         for (let i = 0; i < args.length; i += 2) {
             const name = args[i];
-            const component = args[i + 1];
-            if (components.has(name.toUpperCase())) return
-            if (typeof name === 'string' && typeof component === 'function') {
-                if (isServer()) {
-                    lazyComponents.set(name.toUpperCase(), {name,component});
-                   const compo=await component()
-                   if (compo[name]) {
-                       components.set(name.toUpperCase(),compo[name]) 
-                   }else{
-                    console.log(`component name doesn't matched the export ${name}`);
-                   }
-                }else{
-                    lazyComponents.set(name.toUpperCase(), {name,component});
+            const componentFunc = args[i + 1];
+
+            if (typeof componentFunc !== 'function') {
+                console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string|string[], function).');
+                break;
+            }
+
+            const processName =(compName) => {
+                if (components.has(compName.toUpperCase()) || lazyComponents.has(compName.toUpperCase()) && !__pawaDev.tool) return;
+                
+                if (typeof compName === 'string') {
+                     lazyComponents.set(compName.toUpperCase(), { name: compName, component: componentFunc });
                 }
+            };
+
+            if (Array.isArray(name)) {
+                for (const compName of name) {
+                    processName(compName);
+                }
+            } else if (typeof name === 'string') {
+                 processName(name);
             } else {
-                console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string, function).');
+                console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string|string[], function).');
                 break;
             }
         }
-        return;
-    }
+        
+    
 }
 
 /**
@@ -992,7 +998,7 @@ const mainAttribute = (el, exp) => {
                     if (typeof result !== 'boolean') {
                         return result ?? ''
                     }else{
-                        return ''
+                        return result ? 'true' : 'false'
                     }
                 }
             });
@@ -1006,7 +1012,7 @@ const mainAttribute = (el, exp) => {
                 }
 
                 if (boolValue) {
-                    el.setAttribute(exp.name, '');
+                    el.setAttribute(exp.name, value);
                 } else {
                     el.removeAttribute(exp.name);
                 }
@@ -1015,8 +1021,6 @@ const mainAttribute = (el, exp) => {
                 el.setAttribute(exp.name, value);
             } else {
                 if ((exp.name === 'class' || exp.name === 'style') && enter) {
-                    console.log('entered',enter);
-                    
                     requestAnimationFrame(()=>{
                     el.setAttribute(exp.name, value);
                     })
