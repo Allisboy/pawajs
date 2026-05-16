@@ -61,7 +61,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
             console.error(error.message)
           }
         } 
-        let div =el._compoToSvg?document.createElementNS('http://www.w3.org/2000/svg', 'svg'): document.createElement('div')
+        let div 
     el._componentTerminate=() => {
         comment._terminateByComponent(endComment)
     }
@@ -147,6 +147,11 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
     
     // stateContext._hasRun=true
+    if (compo.trim().startsWith('<path')) 
+      div=document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    else
+    div= document.createElement('div')
+    
     div.innerHTML = compo;
     if (component?._insert) {
       Object.assign(el._context,component._insert)
@@ -173,10 +178,15 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     } 
     const context=el._context
     const getAsChild=()=>{
-      const asChild=div.firstElementChild
-      if (splitAndAdd(asChild?.tagName|| '') === 'ASCHILD') {
-        const getChildren=asChild.firstElementChild
-        Array.from(asChild.attributes).forEach(attr=>{
+      const asChild=div
+      if (el._asChild) {
+        const divFirst=div.firstElementChild
+        if (children.trim().startsWith('<path')) {
+          div=document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        }
+        div.innerHTML=children
+        const getChildren=div.firstElementChild
+        Array.from(divFirst.attributes).forEach(attr=>{
           if (getChildren.hasAttribute(attr.name)) {
             let attrName=getChildren.getAttribute(attr.name)
             attrName=attr.value +' '+attrName
@@ -184,9 +194,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
           }else{
             getChildren.setAttribute(attr.name, attr.value)
           }
-        })
-        asChild.remove()
-        div.appendChild(getChildren)        
+        })       
       }
     }
        const propsSetter=()=>{  

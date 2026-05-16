@@ -19,3 +19,4 @@ CHANGELOG.md
 + version 1.4.33 - added registerComponent.lazy
 + version 1.4.33 -1.4.42 fixing lazy registration component
 + version 1.5.1 stable
++ version 1.5.2 - added function dependencies

@@ -163,7 +163,11 @@ export function pluginsMap(): {
     pawaAttributes: Set<string>;
     allowAsProp: Set<string>;
 };
-
+export function  PawaCustomEvent(eventType:string,handler:(el:PawaElement,modifiers:Set,options:{
+        capture: Boolean,
+        once: Boolean,
+        passive: Boolean
+    },execute:(e:EventListener)=>void)=>{})
 export const escapePawaAttribute: Set<string>;
 export const dependentPawaAttribute: Set<string>;
 

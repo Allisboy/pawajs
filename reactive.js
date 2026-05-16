@@ -7,8 +7,17 @@
   export const componentMount=new Map()
  let queue = new Set();
 let isFlushing = false;
-let deleteEffect = new Set();
+export const deleteEffect = new Set();
 
+export const runWithEffect = (effect, fn) => {
+  const prev = activeEffect;
+  activeEffect = effect;
+  try {
+    return fn();
+  } finally {
+    activeEffect = prev;
+  }
+};
 
 
 const scheduled = new Set();
@@ -21,8 +30,8 @@ function scheduleRenderWithTimeBudget() {
 
   rafScheduled = true;
   scheduleInProgress=true
-  requestAnimationFrame(() => {
-    const start = performance.now();
+  requestAnimationFrame((timestamp) => {
+    const start = timestamp;
     const processed = [];
 
     for (const fn of scheduled) {

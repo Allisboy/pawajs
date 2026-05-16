@@ -1,7 +1,7 @@
 import {components,lazyComponents ,escapePawaAttribute,getPawaAttributes,getDependentAttribute,getPrimaryDirectives, pluginsMap } from './index.js';
 import {splitAndAdd,replaceTemplateOperators,setPawaDevError,getEvalValues, checkKeywordsExistence} from './utils.js';
 import PawaComponent from './pawaComponent.js';
-import { createIntersectionObserver } from './index.js';
+import { triggerLazyLoad } from './index.js';
 import { addLazyComponentElement } from './index.js';
 import { lazyComponentElement } from './index.js';
 
@@ -52,10 +52,10 @@ export class PawaElement {
   }
   checkLazy(){
     if (lazyComponents.has(splitAndAdd(this._el.tagName))) {
+      if(components.has(splitAndAdd(this._el.tagName))) return
       this._lazy=true
-      if (!lazyComponentElement.has(splitAndAdd(this._el.tagName))) {
-        createIntersectionObserver(this._el)
-      }
+        triggerLazyLoad(splitAndAdd(this._el.tagName))
+      
     }
   }
    safeEval(context,expression,directive,resolve=false){
@@ -252,7 +252,7 @@ export class PawaElement {
     }
     const tag = this._el.tagName
    try {
-      if (components.has(splitAndAdd(tag)) || this._lazy) {
+      if (components.has(splitAndAdd(tag)) || this._lazy && !this._el.hasAttribute('data-prevent:c')) {
       this._elementType='component'
       this._componentOrTemplate=true
       this._deCompositionElement=true
@@ -304,14 +304,14 @@ export class PawaElement {
       const {allowAsProp}=pluginsMap()
       const dependAttribute=getDependentAttribute()
       this._attributes.forEach((attr) => {
-        if (attr.name === 'svg') {
-          this._compoToSvg = true
+        if (attr.name.startsWith('state-')) {
           return
-        }else if(attr.name === 'aschild' || attr.name === 'as-child'){
+        }else if(attr.name === 'aschild' || attr.name === 'as-child' || attr.name === ':as-child'){
           this._asChild = true
           return
         }
-        if (!attr.name.startsWith(':') && (!pawaAttribute.has(attr.name) && !dependAttribute.has(attr.name) )) {
+        const primaryAttribute=['if','else','else-if','key','for-each','case','switch','s-default']
+        if (!attr.name.startsWith(':') && !primaryAttribute.includes(attr.name)) {
           let name=''
           if (attr.name.startsWith('-')) {
             name=attr.name.slice(1)
@@ -353,7 +353,7 @@ export class PawaElement {
                 }
                 
                 this._restProps[attr.name]={name:attr.name,value:attr.value} 
-       }else if(!pawaAttribute.has(attr.name) && attr.name.startsWith(':')){
+       }else if(!primaryAttribute.includes(attr.name) && attr.name.startsWith(':')){
         
         const propsName=attr.name.slice(1) 
         if(attr.value === '') attr.value="true";

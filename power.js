@@ -7,6 +7,7 @@ import {normal_If} from './normal/If.js'
 import {normal_For} from './normal/For.js'
 import {resumer} from './resumer.js'
 import { normal_key } from './normal/Key.js';
+import { customEventMap } from './index.js';
 
 // Shared helper to check common event modifiers
 const checkCommonModifiers = (e, modifiers) => {
@@ -102,7 +103,9 @@ const checkKeyModifiers = (e, modifiers, eventType) => {
 const processEventExecution = (el, attrName, modifiers, callback, eventType, directiveName,context) => {
     const execute = () => {
         try { callback(); } 
-        catch (error) { setPawaDevError({ message: `Error from ${directiveName}-${eventType} directive ${error.message}`, error, template: el._template }); }
+        catch (error) { 
+            console.log(error,'at event')
+            setPawaDevError({ message: `Error from ${directiveName}-${eventType} directive ${error.message}`, error, template: el._template }); }
     };
     if (!el._eventTimers) el._eventTimers = {};
     const delay = parseInt([...modifiers].find(m => /^\d+$/.test(m)) || '300');
@@ -308,6 +311,20 @@ export const event = (el, attr, stateContext) => {
     };
     
     const target = modifiers.has('window') ? window : el;
+
+    // Wrapper to ensure custom events respect standard action modifiers
+    const wrappedExecute = (e) => {
+        if (modifiers.has('prevent')) e.preventDefault?.();
+        if (modifiers.has('stop')) e.stopPropagation?.();
+        processEventExecution(el, attr.name, modifiers, () => executeEvent(e), eventType, 'on');
+    };
+
+    if (customEventMap.has(eventType)) {
+        const custom=customEventMap.get(eventType)
+        custom(el, modifiers, options, wrappedExecute)
+        return
+    }
+    
     target.addEventListener(eventType, handler, options);
     
     el._MountFunctions.push(() => target.addEventListener(eventType, handler, options));

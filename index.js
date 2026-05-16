@@ -1,4 +1,4 @@
-import { track, trigger, createEffect } from './reactive.js'
+import { track, trigger, createEffect, runWithEffect, deleteEffect } from './reactive.js'
 import { PawaElement, PawaComment } from './pawaElement.js';
 import {
     If,
@@ -49,6 +49,15 @@ const createPawaDev = () => {
             dev.errors = [];
             dev.emit('clear', null);
         },
+        getSnapshot() {
+            return {
+                renderCount: dev.renderCount,
+                totalEffect: dev.totalEffect,
+                performance: dev.performance,
+                errors: dev.errors,
+                componentCount: dev.components.size
+            };
+        },
         logRender(c, t) { dev.renderCount++; /* preserve logging */ },
         logEffect(e, t) { dev.totalEffect++; /* preserve */ },
         logComponent(n, t) { /* preserve */ }
@@ -66,6 +75,7 @@ if (typeof globalThis !== 'undefined') {
     global.__pawaDev = pawaDevInstance;
 }
 
+export const customEventMap = new Map()
 const compoBeforeCall = new Set()
 const compoAfterCall = new Set()
 const renderBeforePawa = new Set()
@@ -265,6 +275,9 @@ export const RegisterComponent = (...args) => {
             const component = args[i + 1];
             if (typeof name === 'string' && typeof component === 'function') {
                 // if (components.has(name.toUpperCase())) continue;
+                if (!isServer() && lazyComponents.has(name.toUpperCase())) {
+                    lazyComponents.delete(name.toLocaleUpperCase())
+                }
                 components.set(name.toUpperCase(), component);
             } else {
                 console.warn('Mismatched arguments for RegisterComponent. Expected pairs of (string, function).');
@@ -283,40 +296,49 @@ export const RegisterComponent = (...args) => {
         }
     });
 }
+/**
+ * Shared helper to trigger the dynamic import and hydration of a lazy component.
+ * @param {string} tagName 
+ */
+export const triggerLazyLoad = (tagName) => {
+    const lazyData = lazyComponents.get(tagName);
+    if (!lazyData) return;
+
+    lazyData.component().then(res => {
+        const compoFunc = res[lazyData.name];
+        if (!compoFunc) return;
+
+        components.set(tagName, compoFunc);
+        lazyComponents.delete(tagName);
+
+        const instances = lazyComponentElement.get(tagName) || [];
+        while (instances.length > 0) {
+            const { element: el, func } = instances.shift();
+            if (el) {
+                queueMicrotask(() => {
+                    el.style.opacity = "";
+                    if (el._component) {
+                        el._component.component = compoFunc;
+                        el._component.validPropRule = compoFunc?.validateProps || {}
+                    }
+
+                    keepContext(el._stateContext);
+                    el._stateContext._hasRun = false;
+                    func();
+                    el._stateContext._hasRun = true;
+                });
+            }
+        }
+        lazyComponentElement.delete(tagName);
+    }).catch(err => console.error(`Lazy load failed for ${tagName}:`, err));
+};
+
 export const createIntersectionObserver = (element, observeBy) => {
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                const tagName = splitAndAdd(element.tagName);
-                const lazyData = lazyComponents.get(tagName);
-                
-                if (!lazyData) return;
-
-                lazyData.component().then(res => {
-                    const compoFunc = res[lazyData.name];
-                    if (!compoFunc) return;
-
-                    components.set(tagName, compoFunc);
-                    lazyComponents.delete(tagName);
-
-                    const instances = lazyComponentElement.get(tagName) || [];
-                    while (instances.length > 0) {
-                        const { element: el, func } = instances.shift();
-                        if (el) {
-                            if (el._component){
-                              el._component.component = compoFunc;
-                              el._component.validPropRule=compoFunc?.validateProps || {}
-                            } 
-                            
-                            keepContext(el._stateContext);
-                            el._stateContext._hasRun = false;
-                            func(); 
-                            el._stateContext._hasRun = true;
-                        }
-                    }
-                    lazyComponentElement.delete(tagName)
-                    observer.disconnect();
-                }).catch(err => console.error(`Lazy load failed for ${tagName}:`, err));
+                triggerLazyLoad(splitAndAdd(element.tagName));
+                observer.disconnect();
             }
         });
     }, { rootMargin: '100px' }); 
@@ -335,8 +357,10 @@ RegisterComponent.lazy=(...args)=>{
             }
 
             const processName =(compName) => {
+                if (__pawaDev.tool && isServer()) {
+                    components.delete(compName.toUpperCase())
+                }
                 if (components.has(compName.toUpperCase()) || lazyComponents.has(compName.toUpperCase()) && !__pawaDev.tool) return;
-                
                 if (typeof compName === 'string') {
                      lazyComponents.set(compName.toUpperCase(), { name: compName, component: componentFunc });
                 }
@@ -503,7 +527,10 @@ export const setContext = () => {
     }
 
 }
-
+export const PawaCustomEvent=(eventName,handler)=>{
+    if (customEventMap.has(eventName) && !__pawaDev.tool)return
+    customEventMap.set(eventName, handler)
+}
 /**
  * Get parent Context
  * @param {object} context
@@ -764,17 +791,6 @@ export const $state = (initialValue, section = null) => {
                 localStorage.setItem(section, JSON.stringify(states))
             }, 50)
         }
-        globalEffectMap.forEach((effect) => {
-
-            if (effect.deps?.has(target.id)) {
-                if (effect.cleanup) {
-                    effect.cleanup();
-                }
-                effect.cleanup = effect.callback();
-            } else if (effect.deps.size === 0) {
-                effect.cleanup = effect.callback();
-            }
-        });
     });
     if (Array.isArray(section)) {
         if (stateContext._hasRun === false && typeof initialValue === 'function') {
@@ -816,47 +832,55 @@ const stateWatch = (callback, dependencies) => {
         console.warn('stateWatch: Callback function is required');
         return;
     }
-    const dep = new Set()
-    if (dependencies) {
-        dependencies.forEach(d => {
-            dep.add(d.id)
-        })
-    }
+    const dep = new Set();
+
+    const runner = () => {
+        if (!watchCallbacks.has(callback)) {
+            watchCallbacks.set(callback, true);
+            Promise.resolve().then(() => {
+                if (effect.cleanup) {
+                    effect.cleanup();
+                }
+
+                const result = runWithEffect(runner, callback);
+                if (typeof result === 'function') {
+                    effect.cleanup = result;
+                }
+                watchCallbacks.delete(callback);
+            });
+        }
+    };
+    runner._id = crypto.randomUUID();
+
     const effect = {
-        callback: () => {
-            if (!watchCallbacks.has(callback)) {
-                watchCallbacks.set(callback, true);
-                Promise.resolve().then(() => {
-                    if (effect.cleanup) {
-                        effect.cleanup();
-                    }
-                    const result = callback();
-                    // Handle cleanup function returned from callback
-                    if (typeof result === 'function') {
-                        effect.cleanup = result;
-                    }
-                    watchCallbacks.delete(callback);
-                });
-            }
-        },
+        callback: runner,
         deps: dep,
         cleanup: null,
     };
 
-    // Initial run with cleanup handling
-    const result = callback();
+    // Initial run with auto-tracking for explicit dependencies and the main callback
+    if (dependencies) {
+        dependencies.forEach(d => {
+            if (typeof d === 'function') {
+                runWithEffect(runner, d);
+            } else if (d && d.id) {
+                dep.add(d.id);
+                runWithEffect(runner, () => d.value);
+            }
+        });
+    }
+
+    const result = runWithEffect(runner, callback);
     if (typeof result === 'function') {
         effect.cleanup = result;
     }
-
-    globalEffectMap.set(callback, effect);
 
     return () => {
         if (effect.cleanup) {
             effect.cleanup();
         }
-        globalEffectMap.delete(callback);
         watchCallbacks.delete(callback);
+        deleteEffect.add(runner._id);
     };
 };
 
@@ -950,7 +974,7 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
             trackElement._stateContext=el._stateContext 
             addLazyComponentElement(trackElement,()=>resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children }))     
               if (lazyComponentElement.has(name.toUpperCase())) {
-                createIntersectionObserver(trackElement,el)
+                triggerLazyLoad(trackElement.tagName)
               }
             }else{
                 resumer.resume_component?.(el, attr, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch, { comment, endComment, name, serialized, id, children })
@@ -964,17 +988,26 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
 const mainAttribute = (el, exp) => {
     const attrMap = new Map();
     if (el._running) return
-        // Store original attribute value
+
+    // Check if attribute starts with @ (shorthand for reactive attributes)
+    const isAtAttr = exp.name.startsWith('@');
+    const targetName = isAtAttr ? exp.name.slice(1) : exp.name;
+
     if (el._hasForOrIf()) {
         return
     }
     if (el._componentName) {
         return
     }
+
+    if (isAtAttr) {
+        el.removeAttribute(exp.name);
+    }
+
     attrMap.set(exp.name, exp.value);
-    el._preRenderAvoid.push(exp.name)
+    el._preRenderAvoid.push(targetName)
     const booleanAttributes = new Set(['checked', 'selected', 'disabled', 'readonly', 'required', 'multiple']);
-    el._mainAttribute[exp.name] = exp.value
+    el._mainAttribute[targetName] = exp.value
     el._checkStatic()
     let enter=false
     const context=el._context
@@ -1003,30 +1036,32 @@ const mainAttribute = (el, exp) => {
                 }
             });
 
-            if (booleanAttributes.has(exp.name)) {
+            if (booleanAttributes.has(targetName)) {
                 const boolValue = hasExpression ? !!isBoolean : value.toLowerCase() !== 'false';
-                const propName = exp.name === 'readonly' ? 'readOnly' : exp.name;
+                const propName = targetName === 'readonly' ? 'readOnly' : targetName;
 
                 if (propName in el) {
                     el[propName] = boolValue;
                 }
 
                 if (boolValue) {
-                    el.setAttribute(exp.name, value);
+                    el.setAttribute(targetName, value);
                 } else {
-                    el.removeAttribute(exp.name);
+                    el.removeAttribute(targetName);
                 }
-            } else if (exp.name === 'value' && 'value' in el) {
+            } else if (targetName === 'value' && 'value' in el) {
                 el.value = value;
-                el.setAttribute(exp.name, value);
+                el.setAttribute(targetName, value);
             } else {
-                if ((exp.name === 'class' || exp.name === 'style') && enter) {
+                if ((targetName === 'class' || targetName === 'style') && enter) {
                     requestAnimationFrame(()=>{
-                    el.setAttribute(exp.name, value);
+                        el.setAttribute(targetName, value);
                     })
                     enter=true
                 }else{
-                    el.setAttribute(exp.name, value);
+                    el.setAttribute(targetName, value);
+                    // Toggle enter to true after initial set so subsequent reactive updates use requestAnimationFrame
+                    if (targetName === 'class' || targetName === 'style') enter = true;
                 }
             }
         } catch (error) {
@@ -1185,7 +1220,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 directives[attr.name](el, attr, stateContext)
             } else if (attr.name.startsWith('on-') && !isAcomponent) {
                 event(el, attr, stateContext)
-            } else if (attr.value.includes('@{') && !attr.name.startsWith('c-at-')) {
+            } else if ((attr.value.includes('@{') || attr.name.startsWith('@')) && !attr.name.startsWith('c-at-')) {
                 mainAttribute(el, attr, isName)
             } else if (attr.name.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
@@ -1219,6 +1254,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 directives['switch'](el, attr, stateContext, true, notRender, stopResume)// switch continuity
             } else if (fullNamePlugin.has(attr.name)) {
                 if (externalPlugin[attr.name]) {
+                    if (el._componentName && !attr.name.startsWith('c-'))return
                     const plugin = externalPlugin[attr.name]
                     try {
                         if (typeof plugin !== 'function') {
@@ -1233,6 +1269,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
             } else if (startAttribute) {
                 const name = startObject[attr.name]
                 if (externalPlugin[name]) {
+                    if (el._componentName && !attr.name.startsWith('c-'))return
                     const plugin = externalPlugin[name]
                     try {
                         if (typeof plugin !== 'function') {
@@ -1350,10 +1387,12 @@ const Pawa = {
     $state,
     pawaStartApp,
     useAsync,
+    forwardProps,
     useInnerContext,
     RegisterComponent,
     runEffect,
-    html
+    html,
+    PawaCustomEvent
 }
 
 export default Pawa
