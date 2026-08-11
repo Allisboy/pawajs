@@ -83,20 +83,18 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     let compo 
     let awaits=false
     let suspense=''
-  
+    let elementContext=el._context
     if (__pawaDev.tool) {
         const id=Date.now() + Math.random()
       if (HmrComponentMap.has(el._componentName)) {
         HmrComponentMap.get(el._componentName).push({id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
-          pawaWayRemover(comment,endComment)
-          comment.remove(),endComment.remove();
-        }
+          return pawaWayRemover(comment,endComment)
+        },context:elementContext,comment:comment
         })
       }else{
         HmrComponentMap.set(el._componentName,[{id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
-          pawaWayRemover(comment,endComment)
-          comment.remove(),endComment.remove();
-        }}])
+          return pawaWayRemover(comment,endComment)
+        },context:elementContext,comment:comment}])
       }
       el._setUnMount(()=>{
         const array=HmrComponentMap.get(el._componentName)

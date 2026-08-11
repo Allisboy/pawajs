@@ -75,6 +75,8 @@ export class PawaElement {
   }
   
   }catch(error){
+    throw new Error(`Error evaluating expression: ${expression}\n${error.message}`);
+    
     __pawaDev.setError({ 
       el:this?._el, 
       msg:`from ${expression}`, 

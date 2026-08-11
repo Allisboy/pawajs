@@ -20,3 +20,5 @@ CHANGELOG.md
 + version 1.4.33 -1.4.42 fixing lazy registration component
 + version 1.5.1 stable
 + version 1.5.2 - added function dependencies
++ version 2.0.1 -2.0.2 made runEffect to be global or component capability
++ version 2.0.3 integrating HMR system

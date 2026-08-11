@@ -35,15 +35,53 @@ npm install pawajs
 CDN
  
 ```html
-    <head>
-        </head>
-    <body>
-        <div id="app"></div>
-        <script type="module" src="https://cdn.jsdelivr.net/npm/pawajs@latestVersion/index.js"></script>
-        <script type="module">
-            window.$pawa.pawaStartApp(document.getElementById('app'));
-        </script>
-    </body>
+    <!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PawaJS CDN Demo</title>
+</head>
+<body>
+    <div id="app">
+        <counter></counter>
+    </div>
+
+    <!-- PawaJS CDN -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/pawajs-cdn@latest/dist/pawajs.iife.min.js"></script>
+
+    <script type="module">
+        const { pawaStartApp, $state, RegisterComponent, useInsert, html } = Pawa;
+
+        // 1. Define the component
+        const Counter = () => {
+            const count = $state(0);
+            useInsert({ count });
+
+            return html`
+                <div class="p-8 border rounded-lg shadow-md flex flex-col items-center">
+                    <h1 class="text-2xl font-bold">Count: @{count.value}</h1>
+                    <button
+                        on-click="count.value++"
+                        class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                        Increment
+                    </button>
+                </div>
+            `;
+        };
+
+        // 2. Register it as a custom element
+        RegisterComponent(Counter);
+
+        // 3. Start the app
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = document.getElementById('app');
+            pawaStartApp(app);
+        });
+    </script>
+</body>
+</html>
 ```
 
 OR
@@ -202,7 +240,7 @@ PawaJS uses a simple `@{...}` syntax to embed dynamic JavaScript expressions dir
 
 <!-- Bind to attributes -->
 <div class="user-card @{user.value.isActive ? 'active' : 'inactive'}">
-    <input value="@{user.value.name}" on-input="user.value.name = e.target.value">
+    <input @value="@{user.value.name}" on-input="user.value.name = e.target.value">
 </div>
 ```
 
@@ -304,7 +342,7 @@ const message = $state('This is a message from the parent!');
 useInsert({ message });
 
 return html`
-    <todo-list :title="'My Todo List'" :message="message.value" class="to the rest prop">Children in here</todo-list>
+    <todo-list title="My Todo List" :message="message.value" class="to the rest prop">Children in here</todo-list>
 `;
 ```
 

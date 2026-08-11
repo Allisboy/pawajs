@@ -1159,13 +1159,6 @@ const directives = {
     key:Key,
     'is-exit':exitTransition,
 }
-//build a hyphen escape directive
-const escape=(el,attr)=>{
-    if(el._hasRun)return
-    let attrName=attr.name.replaceAll('-',' ')
-    attrName=attrName.trim()
-    
-}
 export const useRef = () => {
     return { value: null }
 }
@@ -1212,9 +1205,11 @@ export const render = (el, contexts = {}, notRender, isName) => {
         startsWithSet.forEach(starts => {
 
             el._attributes.forEach(attr => {
-                if (attr.name.startsWith(starts)) {
+                let attrName=attr.name.replace(/^-+/, '');
+    attrName=attrName.trim()
+                if (attrName.startsWith(starts)) {
                     startAttribute = true
-                    startObject[attr.name] = starts
+                    startObject[attrName] = starts
                 }
             })
         })
@@ -1222,51 +1217,52 @@ export const render = (el, contexts = {}, notRender, isName) => {
         const isAcomponent=el._componentName?true:false
         
         el._attributes.forEach(attr => {
-
+            let attrName=attr.name.replace(/^-+/, '');
+            attrName=attrName.trim()
             if (stopResume.stop || el._hasRun) return
-            if (directives[attr.name]) {
-                directives[attr.name](el, attr, stateContext)
-            } else if (attr.name.startsWith('on-') && !isAcomponent) {
+            if (directives[attrName]) {
+                directives[attrName](el, attr, stateContext)
+            } else if (attrName.startsWith('on-') && !isAcomponent) {
                 event(el, attr, stateContext)
-            } else if ((attr.value.includes('@{') || attr.name.startsWith('@')) && !attr.name.startsWith('c-at-')) {
+            } else if ((attr.value.includes('@{') || attrName.startsWith('@')) && !attrName.startsWith('c-at-')) {
                 mainAttribute(el, attr, isName)
-            } else if (attr.name.startsWith('state-')) {
+            } else if (attrName.startsWith('state-')) {
                 States(el, attr, getCurrentContext())
-            } else if (attr.name.startsWith('out-') && !isAcomponent) {
+            } else if (attrName.startsWith('out-') && !isAcomponent) {
                 documentEvent(el, attr)
-            } else if (attr.name.startsWith('after-[') && attr.name.endsWith(']') && !isAcomponent) {
+            } else if (attrNamestartsWith('after-[') && attrName.endsWith(']') && !isAcomponent) {
                 After(el, attr)
             } 
-             else if (attr.name.startsWith('every-[') && attr.name.endsWith(']') && !isAcomponent) {
+             else if (attrName.startsWith('every-[') && attrName.endsWith(']') && !isAcomponent) {
                 Every(el, attr)
             } 
-            else if (attr.name.startsWith('c-c-')) {
+            else if (attrName.startsWith('c-c-')) {
                 stopResume.stop = true
             
                 
                 component(el, true, attr, notRender, stopResume)// component continuity
-            } else if (attr.name.startsWith('c-at-')) {
+            } else if (attrName.startsWith('c-at-')) {
                 resumer.resume_attribute?.(el, attr, notRender) //attribute continuity
-            } else if (attr.name.startsWith('c-$-')) {
+            } else if (attrName.startsWith('c-$-')) {
                 resumer.resume_state?.(el, attr, notRender) //state continuity
-            } else if (attr.name.startsWith('c-t')) {//text continuity
+            } else if (attrName.startsWith('c-t')) {//text continuity
                 resumer.resume_text(el, attr, isName)
-            } else if (attr.name.startsWith('c-if-')) {
+            } else if (attrName.startsWith('c-if-')) {
                 directives['if'](el, attr, stateContext, true, notRender, stopResume) 
-            } else if (attr.name === 'c-for') {
+            } else if (attrName === 'c-for') {
                 directives['for-each'](el, attr, stateContext, true, notRender, stopResume)
-            }else if (attr.name.startsWith('c-key-')) {
+            }else if (attrName.startsWith('c-key-')) {
                 directives['key'](el, attr, stateContext, true, notRender, stopResume)
             }  
-            else if (attr.name.startsWith('c-sw-')) {
+            else if (attrName.startsWith('c-sw-')) {
                 directives['switch'](el, attr, stateContext, true, notRender, stopResume)// switch continuity
-            } else if (fullNamePlugin.has(attr.name)) {
-                if (externalPlugin[attr.name]) {
-                    if (el._componentName && !attr.name.startsWith('c-'))return
-                    const plugin = externalPlugin[attr.name]
+            } else if (fullNamePlugin.has(attrName)) {
+                if (externalPlugin[attrName]) {
+                    if (el._componentName && !attrName.startsWith('c-'))return
+                    const plugin = externalPlugin[attrName]
                     try {
                         if (typeof plugin !== 'function') {
-                            console.warn(`${attr.name} plugin must be a function`)
+                            console.warn(`${attrName} plugin must be a function`)
                             return
                         }
                         plugin(el, attr, stateContext, notRender, stopResume)
@@ -1275,9 +1271,9 @@ export const render = (el, contexts = {}, notRender, isName) => {
                     }
                 }
             } else if (startAttribute) {
-                const name = startObject[attr.name]
+                const name = startObject[attrName]
                 if (externalPlugin[name]) {
-                    if (el._componentName && !attr.name.startsWith('c-'))return
+                    if (el._componentName && !attrName.startsWith('c-'))return
                     const plugin = externalPlugin[name]
                     try {
                         if (typeof plugin !== 'function') {
@@ -1400,6 +1396,7 @@ const Pawa = {
     RegisterComponent,
     runEffect,
     html,
+    accessChild,
     PawaCustomEvent
 }
 
