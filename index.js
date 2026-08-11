@@ -198,7 +198,8 @@ export const lazyComponents=new Map()
     /**
      * @type {PawaComponent}
      */
-let stateContext = {
+
+    let stateContext = {
     _hasRun: false,
     _formerContext: null,
     _insert: {},
@@ -902,7 +903,7 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
     
     if (!resume) {
         if (el._lazy) {
-            // pas the normal component to lazy handler
+            // passes the normal component to lazy handler
             el.style.opacity=0
             addLazyComponentElement(el,()=>normal_component(el, stateContext, setStateContext, mapsPlugins, formerStateContext, pawaContext, stateWatch))
             return
@@ -1157,6 +1158,13 @@ const directives = {
     switch:Switch,
     key:Key,
     'is-exit':exitTransition,
+}
+//build a hyphen escape directive
+const escape=(el,attr)=>{
+    if(el._hasRun)return
+    let attrName=attr.name.replaceAll('-',' ')
+    attrName=attrName.trim()
+    
 }
 export const useRef = () => {
     return { value: null }

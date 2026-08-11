@@ -78,6 +78,52 @@ export interface PawaElement extends HTMLElement {
     safeEval(context: any, expr: string, error?: string, element?: boolean): any;
 }
 
+export interface PawaDev {
+    tool: boolean;
+    errors: any[];
+    totalEffect: number;
+    errorState: any;
+    components: Set<any>;
+    renderCount: number;
+    performance: {
+        renderTime: number[];
+        effectTime: number[];
+        componentTime: number[];
+        start: number;
+        end: number;
+    };
+    _originalStyles: Map<any, any>;
+    listeners: Set<Function>;
+    highlightElement(el: HTMLElement): void;
+    unhighlightElement(el: HTMLElement): void;
+    subscribe(cb: (event: { type: string; data: any }) => void): () => void;
+    emit(type: string, data: any): void;
+    setError(options?: {
+        el?: HTMLElement;
+        msg?: string;
+        directives?: string;
+        stack?: string;
+        template?: string;
+        warn?: boolean;
+    }): void;
+    clearErrors(): void;
+    getSnapshot(): {
+        renderCount: number;
+        totalEffect: number;
+        performance: any;
+        errors: any[];
+        componentCount: number;
+    };
+    logRender(c: any, t: any): void;
+    logEffect(e: any, t: any): void;
+    logComponent(n: any, t: any): void;
+}
+
+declare global {
+    var __pawaDev: PawaDev;
+    var __pawaStream: (element: HTMLElement, context: any, statecontext?: any) => void;
+}
+
 export interface PawaComment extends Comment {
     _index: number | null;
     _el: Comment;
@@ -163,11 +209,11 @@ export function pluginsMap(): {
     pawaAttributes: Set<string>;
     allowAsProp: Set<string>;
 };
-export function  PawaCustomEvent(eventType:string,handler:(el:PawaElement,modifiers:Set,options:{
+export function  PawaCustomEvent(eventType:string,handler:(el:PawaElement,modifiers:Set<string>,options:{
         capture: Boolean,
         once: Boolean,
         passive: Boolean
-    },execute:(e:EventListener)=>void)=>{})
+    },execute:(e:EventListener)=>void)=>void):void;
 export const escapePawaAttribute: Set<string>;
 export const dependentPawaAttribute: Set<string>;
 
@@ -218,11 +264,11 @@ export function RegisterComponent(...args: (string | Function)[]): void;
 
 export namespace RegisterComponent {
     /**
-     * Registers components lazily. The component's bundle is only fetched when the element enters the viewport.
+     * Registers components lazily. The component's bundle is only fetched during runime encounter.
+     * (name,import) or ([names,...],import)
      */
-    export function lazy(...args: (string | Function)[]): Promise<void>;
+    export function lazy(...arg:Array<string|Function|Array<string>>): Promise<void>;
 }
-
 /**
  * Runs a side effect or lifecycle hook.
  * @param {(comment:PawaComment) => void | (() => void)} callback - Effect function,comment for component hacking and optionally returning cleanup .
@@ -321,7 +367,7 @@ export function setStateContext(context: any): any;
  * @param {string | null | string[]} [section] - Persistence key or dependency array.
  * @returns {State<T>} Reactive state object.
  */
-export function $state<T>(initialValue: StateInput<T>, section?: string | null | string[]): State<T>;
+export function $state<T>(initialValue: StateInput<T>, section?: string | null | Function[] | Object[] | string[]): State<T>;
 
 export function restoreContext(state_context: any): void;
 

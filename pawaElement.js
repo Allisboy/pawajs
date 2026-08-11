@@ -319,6 +319,7 @@ export class PawaElement {
             name=attr.name
           }
           const context=this._context
+          const main={...context}
                 const setProps=()=>{
                  delete this._restProps[name]
                  let value=attr.value
@@ -328,7 +329,7 @@ export class PawaElement {
                      if (checkKeywordsExistence(this._staticContext, expression)) {
                          return value
                      } else {
-                         const res = this.safeEval(context, expression, 'props', true)
+                         const res = this.safeEval({...main}, expression, 'props', true)
                          return res
                      }
                  });

@@ -3,6 +3,10 @@ import {PawaElement,PawaComment} from '../pawaElement.js';
 import {keepContext,render, HmrComponentMap } from '../index.js'
 import {createEffect} from '../reactive.js'
 export const normal_component=(el,stateContext,setStateContext,mapsPlugin,formerStateContext,pawaContext,stateWatch)=>{
+    // Checks if the content is an SVG fragment (graphic elements) without a root <svg> tag.
+    // We exclude 'svg' from the match because a root <svg> tag can be parsed safely inside a <div>.
+    const isSvgFragment = (str) => /^\s*<(path|circle|rect|line|polyline|polygon|ellipse|g|defs|symbol|use|image|text|animate|mask|pattern|clipPath|linearGradient|radialGradient|filter)/i.test(str);
+
     const compoBeforeCall=mapsPlugin.compoBeforeCall
     const compoAfterCall=mapsPlugin.compoAfterCall
     const endComment = document.createComment(`end ${el.tagName}`)
@@ -81,17 +85,26 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     let suspense=''
   
     if (__pawaDev.tool) {
-      const id= crypto.randomUUID()
-      if (HmrComponentMap.has(stateContexts.component._filePath) && stateContexts.component._filePath) {
-        HmrComponentMap.get(stateContexts.component._filePath).push({id:id,template:el._template,el:el,stateContext:stateContexts})
+        const id=Date.now() + Math.random()
+      if (HmrComponentMap.has(el._componentName)) {
+        HmrComponentMap.get(el._componentName).push({id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
+          pawaWayRemover(comment,endComment)
+          comment.remove(),endComment.remove();
+        }
+        })
       }else{
-        HmrComponentMap.set(stateContexts.component._filePath,[{id:id,template:el._template,el:el,stateContext:stateContexts}])
+        HmrComponentMap.set(el._componentName,[{id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
+          pawaWayRemover(comment,endComment)
+          comment.remove(),endComment.remove();
+        }}])
       }
       el._setUnMount(()=>{
-        const array=HmrComponentMap.get(stateContexts.component._filePath)
+        const array=HmrComponentMap.get(el._componentName)
         if(array){
           const index=array.findIndex(item => item.id === id)
           if(index !== -1) array.splice(index,1)
+        }else{
+          HmrComponentMap.delete(el._componentName)
         }
       })
     }
@@ -147,10 +160,9 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       }
     
     // stateContext._hasRun=true
-    if (compo.trim().startsWith('<path')) 
-      div=document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    else
-    div= document.createElement('div')
+    div = isSvgFragment(compo) 
+        ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') 
+        : document.createElement('div');
     
     div.innerHTML = compo;
     if (component?._insert) {
@@ -181,7 +193,7 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
       const asChild=div
       if (el._asChild) {
         const divFirst=div.firstElementChild
-        if (children.trim().startsWith('<path')) {
+        if (isSvgFragment(children)) {
           div=document.createElementNS('http://www.w3.org/2000/svg', 'svg')
         }
         div.innerHTML=children

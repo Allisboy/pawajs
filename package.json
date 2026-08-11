@@ -1,6 +1,6 @@
 {
   "name": "pawajs",
-  "version": "1.5.7",
+  "version": "2.0.2",
   "type":"module",
   "description": "pawajs library (reactive web runtime) for easily building web ui, enhancing html element, micro frontend etc ",
   "main": "index.js",

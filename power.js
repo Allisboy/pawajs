@@ -104,12 +104,14 @@ const processEventExecution = (el, attrName, modifiers, callback, eventType, dir
     const execute = () => {
         try { callback(); } 
         catch (error) { 
-            console.log(error,'at event')
+            throw new Error(error,`at ${attrName} from ${el._template}`);
+            
             setPawaDevError({ message: `Error from ${directiveName}-${eventType} directive ${error.message}`, error, template: el._template }); }
     };
     if (!el._eventTimers) el._eventTimers = {};
     const delay = parseInt([...modifiers].find(m => /^\d+$/.test(m)) || '300');
     if (modifiers.has('debounce')) {
+        
         const timerKey = `${attrName}_debounce`;
         clearTimeout(el._eventTimers[timerKey]);
         el._eventTimers[timerKey] = setTimeout(execute, delay);
@@ -313,7 +315,22 @@ export const event = (el, attr, stateContext) => {
     const target = modifiers.has('window') ? window : el;
 
     // Wrapper to ensure custom events respect standard action modifiers
-    const wrappedExecute = (e) => {
+       const wrappedExecute = (e) => {
+        // Apply common modifiers first
+        if (!checkCommonModifiers(e, modifiers)) return;
+        if (!checkKeyModifiers(e, modifiers, eventType)) return;
+        
+        // Apply target modifiers
+        if (modifiers.has('self') && e.target !== el) return;
+        if (modifiers.has('not-self') && e.target === el) return;
+        
+        // Apply form modifiers (if applicable, though less common for custom events)
+        if (modifiers.has('dirty') && e.target && !e.target.value) return;
+        if (modifiers.has('pristine') && e.target && e.target.value) return;
+        if (modifiers.has('valid') && e.target && !e.target.checkValidity?.()) return;
+        if (modifiers.has('invalid') && e.target && e.target.checkValidity?.()) return;
+
+        // Apply action modifiers
         if (modifiers.has('prevent')) e.preventDefault?.();
         if (modifiers.has('stop')) e.stopPropagation?.();
         processEventExecution(el, attr.name, modifiers, () => executeEvent(e), eventType, 'on');
@@ -325,7 +342,6 @@ export const event = (el, attr, stateContext) => {
         return
     }
     
-    target.addEventListener(eventType, handler, options);
     
     el._MountFunctions.push(() => target.addEventListener(eventType, handler, options));
     el._setUnMount(() => {
@@ -337,8 +353,9 @@ const createBoundCallback = (el, code,context) => {
     const keys = Object.keys(context);
     const resolvePath = (path, obj) => path.split('.').reduce((acc, key) => acc?.[key], obj);
     const values = keys.map((key) => resolvePath(key, context));
-    const func = new Function(...keys, code);
-    return () => func(...values);
+    const func = new Function('$el',...keys, code);
+    const $el=el
+    return () => func($el,...values);
 };
 
 export const mountElement = (el, attr) => {
@@ -532,6 +549,32 @@ export const documentEvent = (el, attr) => {
     };
     
     const target = modifiers.has('window') ? window : document;
+
+    // Wrapper to ensure custom events respect standard action and "out" modifiers
+    const wrappedExecute = (e) => {
+        // Apply common modifiers first
+        if (!checkCommonModifiers(e, modifiers)) return;
+        if (!checkKeyModifiers(e, modifiers, eventType)) return;
+        
+        // ========== TARGET MODIFIERS (OUTSIDE LOGIC) ==========
+        // For out- events, 'self' means we ignore the event if it happens inside the element or on the element itself.
+        if (modifiers.has('self') && (e.target === el || el.contains(e.target))) return;
+        if (modifiers.has('not-self') && e.target === el) return;
+        
+        // ========== ACTION MODIFIERS ==========
+        if (modifiers.has('prevent')) e.preventDefault?.();
+        if (modifiers.has('stop')) e.stopPropagation?.();
+        
+        // ========== EXECUTION ==========
+        processEventExecution(el, attr.name, modifiers, () => executeOutEvent(e), eventType, 'out');
+    };
+
+    if (customEventMap.has(eventType)) {
+        const custom = customEventMap.get(eventType);
+        custom(el, modifiers, options, wrappedExecute);
+        return;
+    }
+
     el._MountFunctions.push(() => target.addEventListener(eventType, handler, options))
     const unMount = () => target.removeEventListener(eventType, handler, options);
     el._setUnMount(unMount)
