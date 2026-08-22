@@ -782,6 +782,11 @@ export const $state = (initialValue, section = null) => {
             console.warn('error while trying to use localStorage')
         }
     }
+    if (stateContext._stateMap) {
+        if (!stateContext._stateMap.has(id)) {
+            stateContext._stateMap.set(id, initialValue)
+        }
+    }
     let timeOut
     const main = createDeepProxy(states, (target, property) => {
         if (typeof section === 'string') {
@@ -890,6 +895,17 @@ export const restoreContext = (state_context) => {
     }
 export const HmrComponentMap=new Map()
 const renderedComponentsRusumed=new Set()
+export const globalRerender=(el,formercontext,context={},oldStateContext)=>{
+    if(!window?.hmr)return
+    let element
+    if (typeof el === 'string') {
+        const dom =document.createDocumentFragment()
+        dom.innerHTML=el
+        element=dom.firstElementChild
+    }else element=el
+    formerStateContext=formercontext
+    normal_component(element,formercontext,setStateContext,mapsPlugins,formercontext,pawaContext,stateWatch,context,oldStateContext)
+}
     /**
      * 
      * @param {PawaElement|HTMLElement} el 
@@ -1230,7 +1246,7 @@ export const render = (el, contexts = {}, notRender, isName) => {
                 States(el, attr, getCurrentContext())
             } else if (attrName.startsWith('out-') && !isAcomponent) {
                 documentEvent(el, attr)
-            } else if (attrNamestartsWith('after-[') && attrName.endsWith(']') && !isAcomponent) {
+            } else if (attrName.startsWith('after-[') && attrName.endsWith(']') && !isAcomponent) {
                 After(el, attr)
             } 
              else if (attrName.startsWith('every-[') && attrName.endsWith(']') && !isAcomponent) {
@@ -1363,7 +1379,10 @@ if (typeof window !== 'undefined') {
     
 }
 export const pawaStartApp = (app, context = {}) => {
-    render(app, context)
+    if (app?.tagName && app.hasAttribute('pawa-app') === false) {
+        app.setAttribute('pawa-app', '')
+        render(app, context)
+    }
 }
 
 /**

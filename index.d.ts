@@ -10,7 +10,7 @@ export interface PawaElement extends HTMLElement {
     _terminateEffects: Set<Function>;
     _deleteEffects: () => void;
     _slots: DocumentFragment;
-    _stateContext: any;
+    _stateContext: StateContextType;
     _mainAttribute: Record<string, any>;
     _preRenderAvoid: string[];
     _lazy: boolean;
@@ -118,6 +118,31 @@ export interface PawaDev {
     logEffect(e: any, t: any): void;
     logComponent(n: any, t: any): void;
 }
+type StateContextType={
+    _name:string,
+    _props:object,
+    _formerStateContext:stateContextType,
+    _elementContext:object,
+    _template:string,
+    _reactiveProps:object,
+    _restProps:object,
+    _hasRun:boolean,
+    _transportContext:object,
+    _static:any[],
+    _serializedData:object,
+    _formerContext:stateContextType,
+    _resume:boolean,
+    _suspense:string,
+    _hmr:boolean,
+    _hook:{
+        beforeMount:Function[],
+        reactiveEffect:Function[],
+        effect:Function[],
+        isMount:Function[],
+        isUnMount:Function[]
+    }
+}
+export const statecontext:StateContextType
 
 declare global {
     var __pawaDev: PawaDev;
@@ -359,7 +384,7 @@ export function forwardProps(props?: Record<string, any>): void;
 export function useInsert(obj?: Record<string, any>): void;
 
 export function setStateContext(context: any): any;
-
+export function globalRerender(el:HTMLElement | string,formercontext:StateContextType,context:any)
 /**
  * Creates a reactive state.
  * @template T

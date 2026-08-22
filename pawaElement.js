@@ -24,14 +24,13 @@ export class PawaElement {
       _slots: document.createDocumentFragment(), _mainAttribute: {}, _preRenderAvoid: [], _running: false,
       _hasForOrIf: this.hasForOrIf, _elementContent: element.textContent, _textContent: {}, _attributes: [],
       _template: div.outerHTML, _exitAnimation: null, _component: null, _unMountFunctions: [], _MountFunctions: [],_beforeUnMountFunctions:[],
-      _elementType: '', _getNode: this.getNode, _componentOrTemplate: false, _props: {}, _isView: null,
+      _elementType: '', _componentOrTemplate: false, _props: {},
       _isElementComponent: false, _pawaAttribute: {}, _setUnMount: this.setUnMounts, _componentName: '',_compoToSvg: false,_asChild: false,
       _attrElement: this.getNewElementByRemovingAttr, _attr: {}, _staticContext: [], _checkStatic: this.reCheckStaticContext,
       _callMount: this.mount, _callUnmount: this.unMount, _remove: this.remove, _componentChildren: undefined,
-      _pawaElementComponent: null, _componentTerminate: null, _cacheSetUp: false, _effectsCarrier: null,_beforeUnMount:this.beforeUnMount,
+      _pawaElementComponent: null, _componentTerminate: null,  _beforeUnMount:this.beforeUnMount,
       _pawaElementComponentName: '', _reCallEffect: this.reCallEffect, _ElementEffects: new Map(),
-      _deCompositionElement: false, _restProps: {}, _kill: null, _isKill: false, _scriptFetching: element.hasAttribute('script'),
-      _scriptDone: false, _underControl: null, safeEval: this.safeEval, _reactiveProps: {},
+      _deCompositionElement: false, _restProps: {}, _kill: null, _isKill: false,  _underControl: null, safeEval: this.safeEval, _reactiveProps: {},
       _clearContext:this.clearContext
     })
     
@@ -102,11 +101,17 @@ export class PawaElement {
         if(!this._el.hasAttribute(value.toLowerCase())) {
           return
         }
-        this._attributes.push({name:value,value:this._el.getAttribute(value.toLowerCase())})
+        let attrName=value.replace(/^-+/, '');
+    attrName=attrName.trim()
+        this._attributes.push({name:attrName.startsWith('on-') || attrName === 'ref'?attrName:value,value:this._el.getAttribute(value.toLowerCase())})
         // console.log(this._el,this._attributes);
       })
     }else{
-      this._attributes=Array.from(this._el.attributes)
+      this._attributes=Array.from(this._el.attributes).map((attr)=>{
+        let attrName=attr.name.replace(/^-+/, '');
+        attrName=attrName.trim()
+        return {name:attrName.startsWith('on-') || attrName === 'ref'?attrName:attr.name,value:attr.value}
+      })
     }
   }
   findPawaAttribute(){
@@ -129,12 +134,6 @@ export class PawaElement {
   }
   setUnMounts(func){
     this._unMountFunctions.push(func)
-  }
-  getNode(){
-      const nodeDiv=document.createElement('div')
-      nodeDiv.innerHTML=this._template
-      const node=nodeDiv.firstElementChild
-      return node
   }
   terminateEffects(){
     this._terminateEffects.forEach((eff) => {
@@ -179,8 +178,10 @@ export class PawaElement {
   async remove(callback){
     
     await this._beforeUnMount()
+    if (window?.hmr) {
+      this._exitAnimation=null
+    }
     if (typeof this._exitAnimation === 'function') {
-      
      try {
       const animate=this._exitAnimation().then(async () => {
          await this._callUnmount()
@@ -314,12 +315,7 @@ export class PawaElement {
         }
         const primaryAttribute=['if','else','else-if','key','for-each','case','switch','s-default']
         if (!attr.name.startsWith(':') && !primaryAttribute.includes(attr.name)) {
-          let name=''
-          if (attr.name.startsWith('-')) {
-            name=attr.name.slice(1)
-          } else {
-            name=attr.name
-          }
+          let name=attr.name
           const context=this._context
           const main={...context}
                 const setProps=()=>{
@@ -336,22 +332,19 @@ export class PawaElement {
                      }
                  });
                  return value
-                 }else if( attr.name.startsWith('on-') || attr.name.startsWith('out-') || attr.name === 'ref'){
-                  const res=this.safeEval(context,`(e)=>{
-                    ${attr.value}
-                  }`, 'props',true)
-                  return res
                  }
                  return attr.value
                 }
                 
                 if (this._props[name] || name === 'class' && this._props['className'] || name === 'defaultValue' && this._props['defaultValue']) return
                 name=name.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                let attrName=attr.name.replace(/^-+/, '');
+                attrName=attrName.trim()
                 if (name === 'class') {
                   this._props['className']=setProps
                 }else if(name === 'default'){
                   this._props['defaultValue']=setProps
-                }else{
+                }else if(!attrName.startsWith('on-') || !attrName.startsWith('ref') || !attrName.startsWith('out-')){
                   this._props[name]=setProps
                 }
                 

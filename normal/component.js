@@ -2,11 +2,87 @@ import {propsValidator, setPawaDevError, pawaWayRemover, checkKeywordsExistence,
 import {PawaElement,PawaComment} from '../pawaElement.js';
 import {keepContext,render, HmrComponentMap } from '../index.js'
 import {createEffect} from '../reactive.js'
-export const normal_component=(el,stateContext,setStateContext,mapsPlugin,formerStateContext,pawaContext,stateWatch)=>{
+function isPawaState(obj) {
+  if(typeof obj !== 'object')return false
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    Object.prototype.hasOwnProperty.call(obj, 'value') &&
+    typeof obj.id === 'string'
+  )
+}
+function snapshotInsert(ctx) {
+  const snapshot = {}
+
+  for (const key of Object.keys(ctx)) {
+    const val = ctx[key]
+    const raw = isPawaState(val) ? val.value : val
+
+    if (typeof raw === 'number' || typeof raw === 'string' || typeof raw === 'boolean') {
+      snapshot[key] = raw
+      continue
+    }
+    if (raw === null || raw === undefined) {
+      snapshot[key] = raw
+      continue
+    }
+    if (typeof raw !== 'object') {
+      // function, symbol, bigint
+      snapshot[key] = undefined
+      continue
+    }
+
+    let lossy = false
+    try {
+      const json = JSON.stringify(raw, (_k, v) => {
+        if (typeof v === 'function' || typeof v === 'symbol') {
+          lossy = true
+        }
+        return v
+      })
+      snapshot[key] = lossy ? undefined : json
+    } catch (error) {
+      snapshot[key] = undefined
+    }
+  }
+// console.log(snapshot);
+
+  return snapshot
+}
+
+function sameInitial(a, b) {
+  if (a === undefined || b === undefined) return false 
+  try {
+    return a === b
+  } catch {
+    return false
+  }
+}
+
+function restorePawaStateFromContext(oldCtx, newCtx,stateContext,oldStateContext) {
+  if (!oldCtx || !newCtx) return
+
+  const prevInitials = oldStateContext._hmrinitial 
+  const freshInitials = snapshotInsert(newCtx)
+  for (const key of Object.keys(newCtx)) {
+    const oldVal = oldCtx[key]
+    const newVal = newCtx[key]
+
+    const initializerChanged =
+      prevInitials !== undefined &&
+      Object.prototype.hasOwnProperty.call(prevInitials, key) &&
+      !sameInitial(prevInitials[key], freshInitials[key])
+
+    if (isPawaState(newVal) && isPawaState(oldVal) && typeof newVal.value === typeof oldVal.value ) {
+      newVal.value = oldVal.value
+    }
+  }
+}
+export const normal_component=(el,stateContext,setStateContext,mapsPlugin,formerStateContext,pawaContext,stateWatch,hmrPreserverContext,hmrOldStateContext)=>{
     // Checks if the content is an SVG fragment (graphic elements) without a root <svg> tag.
     // We exclude 'svg' from the match because a root <svg> tag can be parsed safely inside a <div>.
     const isSvgFragment = (str) => /^\s*<(path|circle|rect|line|polyline|polygon|ellipse|g|defs|symbol|use|image|text|animate|mask|pattern|clipPath|linearGradient|radialGradient|filter)/i.test(str);
-
+    const hmr=window?.hmr || false
     const compoBeforeCall=mapsPlugin.compoBeforeCall
     const compoAfterCall=mapsPlugin.compoAfterCall
     const endComment = document.createComment(`end ${el.tagName}`)
@@ -76,33 +152,45 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
         stateContexts._name=el._componentName
         stateContexts._reactiveProps=reactiveProps
         stateContexts._template=el._template
-        stateContexts._recallEffect=()=>{
-          
-        }
+        stateContexts._recallEffect=()=>{}
+        stateContexts._hmrinitial={}
+    const componentName=el._componentName
     const storeContext=stateContexts
     let compo 
     let awaits=false
     let suspense=''
     let elementContext=el._context
     if (__pawaDev.tool) {
-        const id=Date.now() + Math.random()
+            const id=Date.now() + Math.random()
+            const removeFromHmrMap = () => {
+      const array = HmrComponentMap.get(componentName)
+      if (!array) return
+            
+      const index = array.findIndex((item) => item.id === id)
+      if (index !== -1) {
+        array.splice(index, 1)
+      }
+    
+      if (array.length === 0) {
+        HmrComponentMap.delete(componentName)
+      }
+    }
       if (HmrComponentMap.has(el._componentName)) {
         HmrComponentMap.get(el._componentName).push({id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
+          removeFromHmrMap()
           return pawaWayRemover(comment,endComment)
         },context:elementContext,comment:comment
         })
       }else{
         HmrComponentMap.set(el._componentName,[{id:id,template:el._template,el:el,stateContext:stateContexts,remove:()=>{
+          removeFromHmrMap()
           return pawaWayRemover(comment,endComment)
         },context:elementContext,comment:comment}])
       }
       el._setUnMount(()=>{
         const array=HmrComponentMap.get(el._componentName)
         if(array){
-          const index=array.findIndex(item => item.id === id)
-          if(index !== -1) array.splice(index,1)
-        }else{
-          HmrComponentMap.delete(el._componentName)
+          removeFromHmrMap()
         }
       })
     }
@@ -164,6 +252,10 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     
     div.innerHTML = compo;
     if (component?._insert) {
+      
+      if (hmrPreserverContext && hmrOldStateContext) {
+          restorePawaStateFromContext(hmrPreserverContext,component._insert,stateContexts,hmrOldStateContext)
+        }
       Object.assign(el._context,component._insert)
     }
     const restProps={}
@@ -217,7 +309,11 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     if(Object.entries(restProps).length > 0){
       if (findElement) {
         for (const [key,value] of Object.entries(restProps)) {
+          if (findElement.hasAttribute(value.name)) {
+            findElement.setAttribute(`-${value.name}`,value.value)
+          }else{
             findElement.setAttribute(value.name,value.value)
+          }
           }
         }
       }
@@ -261,6 +357,9 @@ export const normal_component=(el,stateContext,setStateContext,mapsPlugin,former
     stateContexts?._error?.forEach((error) => {
       throw Error(error)
     })
+        if (__pawaDev.tool) {
+          stateContexts._hmrinitial= snapshotInsert(component._insert)
+        }
     render(child, context) 
       } 
     }

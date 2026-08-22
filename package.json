@@ -1,8 +1,8 @@
 {
   "name": "pawajs",
-  "version": "2.0.3",
-  "type":"module",
-  "description": "pawajs library (reactive web runtime) for easily building web ui, enhancing html element, micro frontend, spa etc ",
+  "version": "2.4.0-beta.2",
+  "type": "module",
+  "description": "pawajs library (reactive web runtime) for easily building web ui, enhancing html element, micro frontend, spa etc",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,7 +17,8 @@
     "html",
     "css",
     "web development",
-    "ui"
+    "ui",
+    "runtime"
   ],
   "author": "Allwell Oriso-owubo Owupele",
   "license": "MIT",
