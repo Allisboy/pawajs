@@ -1,5 +1,5 @@
 import { getComponentGraph } from "../component/index.js";
-import { forwardProps, html } from "../hooks/index.js";
+import { forwardProps, html, useValidateComponent } from "../hooks/index.js";
 
 export const Transition = ({ name, duration, enter, exit, ...props }) => {
   forwardProps(props);
