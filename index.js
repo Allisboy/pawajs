@@ -1,4 +1,4 @@
-import { track, trigger, createEffect, runWithEffect, deleteEffect } from './reactive.js'
+import { track, trigger, createEffect, runWithEffect, deleteEffect, flushSync } from './reactive.js'
 import { PawaElement, PawaComment } from './pawaElement.js';
 import {
     If,
@@ -21,19 +21,12 @@ import { getServerInstance, isServer } from './server.js'
 import { templates } from './normal/template.js'
 import { normal_component } from './normal/component.js';
 import { resumer } from './resumer.js';
-let ERROR_CALLER
-export const setErrorCALLER = (callback) => {
-        ERROR_CALLER = callback
-    }
-    // in progress
-const errorCaller = (message) => {
 
-}
 const client = isServer() === false
 const serverInstance = getServerInstance()
 const createPawaDev = () => {
     const dev = {
-        tool: false, errors: [], totalEffect: 0, errorState: null, components: new Set(),
+        tool: false, errors: [], totalEffect: 0, errorState: null, components:()=>dev.tool? components: components.size,
         renderCount: 0, performance: {renderTime: [], effectTime: [], componentTime: [], start: 0, end: 0},
         _originalStyles: new Map(), listeners: new Set(),
         highlightElement(el) { if(!(el instanceof HTMLElement))return; /* preserve full logic unchanged */ },
@@ -55,7 +48,7 @@ const createPawaDev = () => {
                 totalEffect: dev.totalEffect,
                 performance: dev.performance,
                 errors: dev.errors,
-                componentCount: dev.components.size
+                componentCount: components.size
             };
         },
         logRender(c, t) { dev.renderCount++; /* preserve logging */ },
@@ -64,7 +57,8 @@ const createPawaDev = () => {
     };
     return dev;
 };
-
+export const components = new Map()
+export const lazyComponents=new Map()
 const pawaDevInstance = createPawaDev();
 
 if (typeof globalThis !== 'undefined') {
@@ -193,8 +187,7 @@ export const keepContext = (context) => {
     formerStateContext = stateContext
 
 }
-export const components = new Map()
-export const lazyComponents=new Map()
+
     /**
      * @type {PawaComponent}
      */
@@ -622,6 +615,49 @@ export const useAsync = () => {
         return serverInstance.useAsync?.()
     }
 }
+let activeTransition = null;
+
+export const useTransition = () => {
+  const transition = (mutate = () => {}, types = null) => {
+    if (!document?.startViewTransition) {
+      mutate();
+      return null;
+    }
+
+    if (activeTransition) {
+      // a transition is already running somewhere on the page — don't
+      // stack another one, just apply the change plainly
+      mutate();
+      return null;
+    }
+
+    const update = () => {
+      mutate();
+      flushSync(); // DOM guaranteed patched before this callback returns
+    };
+
+    if (types && types.length) {
+      try {
+        activeTransition = document.startViewTransition({ update, types });
+      } catch (err) {
+        // browser doesn't support the { update, types } object form —
+        // fall back to the plain callback so the transition still happens,
+        // just without type-scoped CSS
+        activeTransition = document.startViewTransition(update);
+      }
+    } else {
+      activeTransition = document.startViewTransition(update);
+    }
+
+    activeTransition.finished.finally(() => {
+      activeTransition = null;
+    });
+
+    return activeTransition;
+  };
+
+  return transition;
+};
 //resume state during after ssr
 export const isResume = () => {
         if (client) {
@@ -794,7 +830,11 @@ export const $state = (initialValue, section = null) => {
                 clearTimeout(timeOut)
             }
             timeOut = setTimeout(() => {
-                localStorage.setItem(section, JSON.stringify(states))
+                try {
+                    localStorage.setItem(section, JSON.stringify(states))
+                } catch (error) {
+                    console.error('Failed to store state',error)
+                }
             }, 50)
         }
     });
@@ -839,51 +879,26 @@ const stateWatch = (callback, dependencies) => {
         return;
     }
     const dep = new Set();
-
-    const runner = () => {
-        if (!watchCallbacks.has(callback)) {
-            watchCallbacks.set(callback, true);
-            Promise.resolve().then(() => {
-                if (effect.cleanup) {
-                    effect.cleanup();
-                }
-
-                const result = runWithEffect(runner, callback);
-                if (typeof result === 'function') {
-                    effect.cleanup = result;
-                }
-                watchCallbacks.delete(callback);
-            });
-        }
-    };
-    runner._id = crypto.randomUUID();
-
-    const effect = {
-        callback: runner,
-        deps: dep,
-        cleanup: null,
-    };
-
-    // Initial run with auto-tracking for explicit dependencies and the main callback
+    let effect=null
     if (dependencies) {
         dependencies.forEach(d => {
             if (typeof d === 'function') {
-                runWithEffect(runner, d);
+               effect= createEffect(d,null,callback)
             } else if (d && d.id) {
                 dep.add(d.id);
-                runWithEffect(runner, () => d.value);
+                effect=createEffect(() => d.value,null,callback);
             }
         });
+        
+    }else{
+       
+      effect= callback()
     }
 
-    const result = runWithEffect(runner, callback);
-    if (typeof result === 'function') {
-        effect.cleanup = result;
-    }
 
     return () => {
-        if (effect.cleanup) {
-            effect.cleanup();
+        if (effect) {
+            effect();
         }
         watchCallbacks.delete(callback);
         deleteEffect.add(runner._id);
@@ -916,7 +931,7 @@ const component = (el, resume = false, attr, notRender, stopResume) => {
         return
     }
     el._running = true
-    
+    __pawaDev.totalComponent++
     if (!resume) {
         if (el._lazy) {
             // passes the normal component to lazy handler
@@ -1404,6 +1419,7 @@ export const html = (strings, ...values) => {
 const Pawa = {
     useInsert,
     useContext,
+    useTransition,
     useValidateComponent,
     setPawaAttributes,
     setContext,
