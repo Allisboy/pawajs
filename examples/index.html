@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .view{
+            width: 200px;
+            height: 200px;
+            background-color: aquamarine;
+        }
+        .views{
+            width: 150px;
+            height: 150px;
+            background-color: gold;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div>
+            <h1>Hello PawaJS</h1>
+            <text></text>
+        </div>
+        <transition 
+            
+            :duration="3000" 
+            :enter="['transform:scale(0)','transform:scale(1)']"
+            :exit="['transform:scale(1)','transform:scale(0)']"
+            >
+            <div  class="view" state-name="''">
+                <active :show="user.value">
+                    <div #style.color="@{user.value?'red':'blue'}">@{name.value}</div>
+                </active>
+                <input @value="@{name.value}" on-input="name.value=e.target.value"/>
+            </div>
+        </transition>
+        
+    <template for-each="item, i in items.value" 
+        for-key="{{item.id}}" 
+        >
+                <div #style.color="@{user.value?'red':'blue'}">@{item.name}</div>
+                <div on-click="remove(item.id)">Enter</div>
+    </template>
+    
+    <div on-click="set()">From template</div>
+        <div await="promise()">
+            <h4>This is Promise</h4>
+        </div>
+        <div as-fallback>
+            <span>Loading...</span>
+        </div>
+        <div as-catch>Error something wrong</div>
+        <counter user="user">
+            <div>
+                <span @inner-html="ALLWELL"></span>
+                <span>MY OWN Counter</span>
+            </div>
+        </counter>
+    </div>
+    <script type="module" src="./index.js"></script>
+</body>
+</html>

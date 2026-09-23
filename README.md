@@ -5,22 +5,27 @@ pawajs - power the web (reactivity and html runtime)
 
 **A lightweight and reactive JavaScript library for building modern web interfaces with a simple, declarative syntax.**
 
-PawaJS (reactive web runtime) is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering using pawa-ssr (server rendering runtime) and pawajs-continue (continuous rendering), PawaJS is equipped for performance and scalability.
+PawaJS (reactive web runtime) is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system, no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering using pawa-ssr (server rendering runtime) and pawajs-continue (continuity runtime), PawaJS is equipped for performance and scalability.
 
+PawaJS is a **reactive web runtime** for HTML-first UIs: components, directives, and fine-grained `$state` updates with **no virtual DOM**.
+
+On the client it powers widgets through SPAs. With **pawa-ssr** and **pawajs-continue** it uses **selective continue** (SCP): the server sends HTML plus a sparse index of reactive areas; the client continues only those areas. **Static components are stripped** from that index so they are not re-executed on the client.
 🌐 **Website:** [pawajs.vercel.app](https://pawajs.vercel.app)
 
----
+
 
 ## Features
 
--   **Declarative Rendering:** Use a clean, HTML-based template syntax with powerful directives (`if`, `for-each`, `on-event`, etc.) to describe your UI.
+-   **Declarative Rendering:** Use a clean, HTML-based template syntax with powerful directives (`if`, `for-each`, `await`, `on-event`, etc.) to describe your UI.
 -   **Reactive State Management:** Effortlessly create reactive state that automatically updates the DOM when it changes using the `$state` utility.
--   **Component-Based Architecture:** Build encapsulated components with just js function that manage their own state, making your code more reusable and maintainable.
--   **Async Components:** First-class support for asynchronous components, allowing you to fetch data directly within your component definition.
+-   **Component-Based Architecture:** Build encapsulated components with just a JS function that manages its own state, making your code more reusable and maintainable. Components are synchronous by default — no async component mode to reason about.
+-   **First-Class Async Handling:** Fetch and await data directly in your templates with the `await` / `as-fallback` / `as-catch` directives — no special component wiring required.
 -   **Efficient List Rendering:** Render lists of data with the `for-each` directive, including support for keyed updates for optimal performance.
 -   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
 -   **Context API:** Pass data through the component tree without having to pass props down manually at every level.
--   **Server-Side Rendering (SSR) Isomorphic architecture:** PawaJS is built with SSR in mind, featuring a "resuming" mechanism to efficiently continue server-rendered HTML on the client.
+
+- **Selective continue (SSR):** `pawa-ssr` emits HTML + SCP; `pawajs-continue` binds reactive regions only. Static UI stays plain HTML (no client re-execution).
+---
 -   **Plugin System:** Extend PawaJS's core functionality with custom directives and lifecycle behaviors.
 
 ---
@@ -33,7 +38,7 @@ Install PawaJS into your project using npm:
 npm install pawajs
 ```
 CDN
- 
+
 ```html
     <!doctype html>
 <html lang="en">
@@ -86,7 +91,7 @@ CDN
 
 OR
 
-Then, you can import it into your application: through npm
+Then, you can import it into your application through npm:
 
 ```javascript
 import { pawaStartApp, $state, RegisterComponent, html } from 'pawajs';
@@ -162,7 +167,7 @@ pawaStartApp(appElement);
 
 ### State Management with `$state`
 
-The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it (fine-granded) no component re-rendering or diffing. `$state` can be global when used outside a component. Also inline state in the html or template `state-*="any js types"`
+The `$state` function is the heart of PawaJS's reactivity. It creates a reactive object whose `value` property can be read and written to. Any changes to `.value` will automatically trigger updates in the parts of your application that depend on it (fine-grained) — no component re-rendering or diffing. `$state` can be global when used outside a component. You can also declare inline state directly in HTML or a template with `state-*="any js value"`.
 
 ```html
     <!--- number-->
@@ -187,48 +192,37 @@ name.value = 'PawaJS'; // The UI will update automatically
 const user = $state({ name: 'Alex', loggedIn: false });
 user.value.loggedIn = true; // This is also reactive
 
-// Persist state to localStorage
+// Persist state to localStorage — wrap the $state call in useStorage(),
 // The state will be saved under the key 'session' and reloaded on page refresh.
-const session = $state({ id: null }, 'session');
+const session = useStorage(() => $state({ id: null }), 'session');
 
 // Compute state - must be used inside a component
-// when ever count changes the state update
+// whenever count changes, the state updates
 const doubleCount=$state(()=>count.value * 2,[count])
 
 //AutoCompute
-// Any function that uses any reactive state for reactive bindings or direcives becomes computed function
+// Any function that uses any reactive state for reactive bindings or directives becomes a computed function
 const doubleCount=()=>count.value * 2
+
+// Schedule a batch of state updates through the frame-budgeted scheduler
+// instead of the default immediate/microtask path — useful for grouping a
+// burst of updates so they get spread across animation frames rather than
+// forced through synchronously in one go.
+schedule(() => {
+    count.value++
+    name.value = 'Updated'
+})
 ```
 
 ### Components
 
-Components are the building blocks of your application. In PawaJS, a component is a JavaScript function that returns an HTML template string or not.
+Components are the building blocks of your application. In PawaJS, a component is a **synchronous** JavaScript function that returns an HTML template string, or nothing.
 
 -   **Defining:** Create a function that returns a template or not.
 -   **Registering:** Use `RegisterComponent(MyComponent)` to make it available globally. In HTML, you can then use it as `<my-component>`.
 -   **`useInsert`:** To make variables, state, and functions from your component's setup available in its template, pass them in an object to `useInsert()`.
 
-### Asynchronous Components
-
-PawaJS supports async components ( `useAsync()` hook) out of the box. You can define a component as an `async` function, allowing you to perform asynchronous operations (like fetching data) before the component renders.
-wrap any pawajs hook with $async after any await call
-
-```javascript
-const UserProfile = async () => {
-    // Async hook store the current component instance for $async to use
-    const {$async}=useAsync()
-    // The component will wait for this promise to resolve before rendering
-    const data = await fetch('/api/user').then(res => res.json());
-    const user = $async(()=>$state(data);)
-    $async(()=>useInsert({user}))
-
-    return html`
-        <div class="profile">
-            <h1>@{user.value.name}</h1>
-        </div>
-    `;
-}
-```
+Components are always synchronous — there's no separate "async component" mode to learn. If a component needs to fetch or await data, reach for the [`await` directive](#await--as-fallback--as-catch) inside its template instead.
 
 ### Templating
 
@@ -249,7 +243,7 @@ PawaJS uses a simple `@{...}` syntax to embed dynamic JavaScript expressions dir
 Directives are special attributes that apply reactive behavior to DOM elements.
 
 #### `state-*`
-create inline state for the element and children 
+Create inline state for the element and its children.
 
 ```html
     <div state-count="0">
@@ -257,7 +251,6 @@ create inline state for the element and children
     </div>
 
 ```
-
 
 #### `if` / `else` / `else-if`
 For conditional rendering.
@@ -273,36 +266,15 @@ For conditional rendering.
     Please log in to continue.
 </div>
 ```
-#### `switch` / `case` / `default`
-switch conditional rendering.
 
-```html
-<div switch="user.value.type" case="'admin'">
-    Welcome back, @{user.name.value}!
-</div>
-<div case="'guest">
-    You are browsing as a guest.
-</div>
-<div default>
-    Please log in to continue.
-</div>
-```
 #### `key`
-re-renders the element/component when the reactivity changes 
+Re-renders the element/component when the value it watches changes.
 
 ```html
 <user-component key="user.value.type"></user-component>
 
 ```
 
-#### `is-exit`
-makes pawajs engine to wait before removing the element until the animation/transition is done.
-
-```html
-<div if="user.value.loggedIn" class="user-card @{user.value.isActive ? 'active' : 'inactive'}" is-exit>
-    <input value="@{user.value.name}" on-input="user.value.value = e.target.value">
-</div>
-```
 #### `for-each`
 For rendering lists from an array. Use `for-key` to give each element a unique identity, which helps PawaJS optimize rendering.
 
@@ -314,7 +286,35 @@ For rendering lists from an array. Use `for-key` to give each element a unique i
 </ul>
 ```
 
-#### `on-<event>..chainModifiers` 
+#### `await` / `as-fallback` / `as-catch`
+For handling asynchronous data directly in a template — no async component wiring needed. The `await` attribute must point to a **function that returns a promise**, not an already-invoked call.
+
+The resolved value is exposed in scope under `res` by default (the caught error under `error`), or under whatever name you give with `as`.
+
+```html
+<div await="fetchUser">
+    <p>Welcome, @{res.name}</p>
+</div>
+<div as-fallback>
+    <p>Loading...</p>
+</div>
+<div as-catch>
+    <p>Failed to load: @{error.message}</p>
+</div>
+```
+
+Use `as` to bind the resolved (or caught) value under a custom name:
+
+```html
+<div await="fetchUser" as="user">
+    <p>Welcome, @{user.name}</p>
+</div>
+<div as-catch as="err">
+    <p>Failed to load: @{err.message}</p>
+</div>
+```
+
+#### `on-<event>..chainModifiers`
 modifiers - 'self','prevent','once','capture' etc
 For handling DOM events.
 
@@ -322,19 +322,46 @@ For handling DOM events.
 <button on-click="addTodo()">Add Todo</button>
 <input on-input="newTodoText.value = e.target.value" />
 ```
+
 #### `out-<event>.chainModifiers`
 modifiers - 'self','prevent','once','capture' etc
-For handling DOM events.
+For handling events fired outside the element.
 
 ```html
 <button out-click.once="console.log('outside')">Add Todo</button>
 ```
 
+#### `after-[ms]` / `every-[ms]`
+Run a callback once after a delay or repeatedly on an interval. The expression is evaluated with the current render context and the timer is cleaned up when the component unmounts.
+
+```html
+<div after-[2000]="console.log('done after 2s')"></div>
+<div every-[1000]="count.value++"></div>
+```
+
+This is the runtime timer directive path used by the graph scheduler and is cleaned up automatically on unmount.
+
+### Direct element property updates (JSA) - JavaScript Attribute
+PawaJS also supports direct property assignment (javascript element attribute)  with the `@` shorthand on an element. This avoids needing to write a full `on-*` event handler when you just want to set a DOM property or style field.
+
+```html
+<div @style.color="red" @inner-text="inner text"></div>
+```
+
+Nested properties are also supported:
+
+```html
+<div @style.background-color="tomato" @dataset.role="admin"></div>
+```
+
+The same shorthand works for native properties like `@value`, `@checked`, `@textContent`, and `@innerHTML`.
+
 ### Component Props
 
 You can pass data from a parent component to a child component using props. To declare a prop, prefix the attribute with a colon (`:`).
-Children are passed by default in pawajs, they are not functional prop.
-For rest props pass `--` to the element that needs the attributes.
+
+Children are **not** passed as a prop in PawaJS — they're passed as a `<slot>`, the same way native web components handle content projection. For rest props, pass `--` to the element that needs the attributes.
+
 **Parent Component (`app.js`)**
 ```javascript
 // ...
@@ -342,13 +369,15 @@ const message = $state('This is a message from the parent!');
 useInsert({ message });
 
 return html`
-    <todo-list title="My Todo List" :message="message.value" class="to the rest prop">Children in here</todo-list>
+    <todo-list title="My Todo List" :message="message.value" class="to the rest prop">
+        <p>Children go in here</p>
+    </todo-list>
 `;
 ```
 
 **Child Component (`todo-list.js`)**
 ```javascript
-export const TodoList = ({ title, message,children }) => {
+export const TodoList = ({ title, message }) => {
     // Props are passed as functions that return the reactive value
     useInsert({ title, message });
 
@@ -356,7 +385,7 @@ export const TodoList = ({ title, message,children }) => {
         <div -->
             <h2>@{title()}</h2>
             <p>@{message()}</p>
-            ${children}
+            <slot></slot>
         </div>
     `;
 }
@@ -374,6 +403,106 @@ useValidateComponent(TodoList, {
 });
 ```
 
+### Slots
+
+A component's `<slot>` is where the caller's children land. A plain `<slot></slot>` (or a `<slot name="default">`) catches every child the caller passed that wasn't targeted at a specific named slot — this is what `TodoList` above uses.
+
+You can have **more than one slot**, each with its own `name`, to project different pieces of content into different parts of a component's template. On the caller's side, target a named slot with a `<template slot="name">` wrapper:
+
+**Parent (`app.js`)**
+```javascript
+return html`
+    <card-panel>
+        <template slot="header">
+            <h2>Project status</h2>
+        </template>
+
+        <p>This is the default slot content — the body of the card.</p>
+
+        <template slot="footer">
+            <button on-click="dismiss()">Dismiss</button>
+        </template>
+    </card-panel>
+`;
+```
+
+**Child (`card-panel.js`)**
+```javascript
+export const CardPanel = () => {
+    return html`
+        <div class="card">
+            <header>
+                <slot name="header"></slot>
+            </header>
+            <section class="card-body">
+                <slot></slot>
+            </section>
+            <footer>
+                <slot name="footer"></slot>
+            </footer>
+        </div>
+    `;
+}
+```
+
+Anything the caller passes that isn't wrapped in a `<template slot="...">` falls through to the unnamed default slot — so plain, un-templated children and a `<template slot="...">` block can be mixed freely on the same call site, as in the example above.
+
+### Passing a string prop with `<template prop="...">`
+
+Sometimes you want to pass a chunk of raw markup or text to a component as a **prop value** (a string), not as projected content. Use `<template prop="name">` for that — its inner HTML becomes the string value of that prop, available on the child the same way any other prop is.
+
+```javascript
+// Parent
+return html`
+    <alert-box>
+        <template prop="message">Something went wrong.</template>
+    </alert-box>
+`;
+```
+
+```javascript
+// Child (alert-box.js)
+export const AlertBox = ({ message }) => {
+    useInsert({ message });
+    return html`
+        <div class="alert">@{message()}</div>
+    `;
+}
+```
+
+A component's root element can also **become** whatever the caller passed, instead of wrapping it, by marking either the component's own root with `aschild` or letting a top-level `<slot>` take over as the root — useful when a component shouldn't add an extra wrapping element (e.g. a `Button` component that should render as the caller's own `<a>` if one is passed). In that case, the two elements' attributes are merged rather than one replacing the other — `class`/`style` are concatenated, everything else is kept from both (with collisions resolved by prefixing).
+
+---
+
+## Built-in Components
+
+PawaJS ships two built-in components for common structural and animation needs.
+
+### `Active`
+
+Controls whether its content is visible and reactive, toggling `display: none` and pausing/resuming the effects underneath it based on a `show` prop. Useful for tabs, panels, or any content that should stop doing reactive work while it's hidden.
+
+```html
+<active :show="isOpen.value">
+    <expensive-panel></expensive-panel>
+</active>
+```
+
+### `Transition`
+
+Wraps its content with enter/exit animation. When the content is added to the DOM, `Transition` plays the `enter` animation; when it's about to be removed (e.g. an `if` flipping false), it plays `exit` first and waits for it to finish before the element is actually taken out — so removal-triggering content never just vanishes mid-animation.
+
+`enter` and `exit` take the same frame arguments as `el.animation()` — either an array of class names or an array of inline style strings — and `duration` controls how long each takes (defaults to `300`ms).
+
+```html
+<transition 
+    :enter="['opacity-0 scale-95', 'opacity-100 scale-100']"
+    :exit="['opacity-100 scale-100', 'opacity-0 scale-95']"
+    :duration="250">
+    <div if="user.value.loggedIn">Welcome back!</div>
+</transition>
+```
+
 ---
 
 ## API Reference
@@ -381,17 +510,34 @@ useValidateComponent(TodoList, {
 ### Core Functions
 -   `pawaStartApp(rootElement, initialContext)`: Initializes the PawaJS application on a given root DOM element.
 -   `RegisterComponent(...components)`: Registers one or more components to be used in templates.
--   `$state(initialValue, localStorageKey?)`: Creates a new reactive state object. Used inside or outside Component (module export)
--   `PluginSystem(plugin)`: Registers a plugin to extend PawaJS functionality (e.g., Routers, Global Stores).
+-   `Graph(parentGraph?)`: Creates a render graph node for a component or section of the DOM tree. This is the low-level runtime model used to track child nodes, lifecycle hooks, and reactive state.
+-   `PawaRender(graph, contexts?)`: Creates a render driver and returns `{ render, renderGraph, setContext }`. It walks a DOM subtree, resolves directives, mounts components, and attaches the current context graph to each node.
+-   `setComponentGraph(graph)` / `getComponentGraph()`: Set or read the active component graph from the current rendering context.
+-   `$state(initialValue, section?)`: Creates a new reactive state object. Used inside or outside a component (module export). `section` is used for compute dependencies (pass an array) or for naming an async batch — not for localStorage persistence.
+-   `useStorage(createCall, name)`: Wraps a `$state` creation call so its value is persisted to `localStorage` under `name` and restored on reload.
+-   `schedule(callback)`: Runs any state updates made inside `callback` through the frame-budgeted scheduler instead of the default immediate path — useful for batching a burst of updates across animation frames.
+-   `Plugin(plugin)`: Registers a plugin to extend PawaJS functionality (e.g., Routers, Global Stores).
 -   `html`: A tagged template literal for syntax highlighting and potential future optimizations.
 
 ### Component Hooks
 -   `useInsert(object)`: Exposes data and functions from a component's setup to its template.
--   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change . Used inside or outside Component 
+-   `runEffect(callback, dependencies?)`: Runs a side effect after or before the component renders, and re-runs it when its dependencies change. Used inside or outside a component.
 -   `useContext(contextObject)` & `setContext()`: A mechanism for providing and consuming data throughout a component tree.
 -   `useRef()`: Creates a reference object that can be attached to a DOM element using the `ref` directive.
 -   `useValidateComponent(Component, rules)`: Defines validation rules for a component's props.
--   `useServer()`: Returns `{ setServerData, getServerData }` for handling server-side data serialization and client-side retrieval in SSR applications.
+
+### Low-level Render Graph
+PawaJS keeps internal render metadata in a graph object attached to the DOM node tree. That graph tracks parent/child relationships, mount hooks, enter/exit transitions, storage for context, and the current render state. This is the runtime structure behind directives like `if`, `for-each`, `key`, `await`, and component mounting.
+
+```javascript
+import { Graph, PawaRender } from 'pawajs';
+
+const graph = Graph();
+const { render, renderGraph } = PawaRender(graph, { user: { name: 'Pawa' } });
+render(document.getElementById('app'));
+```
+
+The graph is not usually something app code needs to manipulate directly, but it is the internal foundation for the library's reactive rendering pipeline and is exposed for advanced runtime integration and debugging.
 
 ---
 

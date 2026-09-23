@@ -1,445 +1,483 @@
+/**
+ * Runtime graph instance used by the render pipeline.
+ * Owns lifecycle, effects, and DOM refs for a component or control-flow region.
+ * Not a virtual DOM node — structural ownership only.
+ */
+export interface PawaGraph {
+  /** DOM node, comment anchor, or nested graph root this instance controls. */
+  ref: any;
 
-export interface PawaElement extends HTMLElement {
-    _running: boolean;
-    _context: any;
-    _staticContext: Array<string>;
-    _resetEffects: Set<Function>;
-    _avoidPawaRender: boolean;
-    _el: HTMLElement;
-    _out: boolean;
-    _terminateEffects: Set<Function>;
-    _deleteEffects: () => void;
-    _slots: DocumentFragment;
-    _stateContext: StateContextType;
-    _mainAttribute: Record<string, any>;
-    _preRenderAvoid: string[];
-    _lazy: boolean;
-    _await: boolean;
-    _hasForOrIf: () => boolean;
-    _elementContent: string | null;
-    _textContent: Record<string, string>;
-    _attributes: ({ name: string; value: string } | Attr)[];
-    _template: string;
-    _exitAnimation: (() => Promise<void>) | null;
-    _component: any;
-    _unMountFunctions: Function[];
-    _MountFunctions: Function[];
-    _elementType: string;
-    _getNode: () => Element | null;
-    _componentOrTemplate: boolean;
-    _props: Record<string, any>;
-    _isView: any;
-    _isElementComponent: boolean;
-    _pawaAttribute: Record<string, string>;
-    _setUnMount: (func: Function) => void;
-    _componentName: string;
-    _attrElement: (attrName: string) => HTMLElement;
-    _attr: Record<string, string>;
-    _checkStatic: () => void;
-    _callMount: () => void;
-    _callUnMOunt: () => Promise<void>;
-    _remove: (callback?: Function) => Promise<any>;
-    _componentChildren: string;
-    _pawaElementComponent: any;
-    _componentTerminate: Function | null;
-    _cacheSetUp: boolean;
-    _effectsCache: HTMLElement | null;
-    _effectsCarrier: any;
-    _pawaElementComponentName: string;
-    _reCallEffect: () => void;
-    _ElementEffects: Map<any, any>;
-    _deCompositionElement: boolean;
-    _restProps: Record<string, any>;
-    _kill: Function | null;
-    _isKill: boolean;
-    _scriptFetching: boolean;
-    _scriptDone: boolean;
-    _underControl: any;
-    _reactiveProps: Record<string, any>;
-    getChildrenTree(): Element[];
-    reCallEffect(): void;
-    setPawaAttr(): void;
-    findPawaAttribute(): void;
-    setUnMounts(func: Function): void;
-    isPawaElementComponent(): void;
-    getNode(): Element | null;
-    terminateEffects(): void;
-    getNewElementByRemovingAttr(attrName: string): HTMLElement;
-    setAttri(): void;
-    hasForOrIf(): boolean;
-    cache(): void;
-    effectsCache(): HTMLElement | null;
-    reCheckStaticContext(): void;
-    remove(callback?: Function): Promise<any>;
-    unMount(): Promise<void>;
-    mount(): void;
-    elementType(): void;
-    setProps(): void;
-    safeEval(context: any, expr: string, error?: string, element?: boolean): any;
+  /** Semantic kind of this node (e.g. component, condition, for-each, template). */
+  nodeType: string;
+
+  /** Whether this region is tied to async work (e.g. await). */
+  async: boolean;
+
+  /** Resolved or reactive props for a component instance. */
+  props: Record<string, any>;
+
+  /** Child component instances or slot-related nodes. */
+  componentChildren: any[];
+
+  /** Values inserted into template scope at setup (useInsert / initial bindings). */
+  initialInsert: Record<string, any>;
+
+  /** Stable identity for list/key regions. */
+  key: string;
+
+  /** Current branch or control-flow cursor (e.g. active condition id). */
+  current: string;
+
+  /** High-level graph category (e.g. pawa-dom). */
+  type: string;
+
+  /** Attributes/props not mapped into the main props object. */
+  restProps: Record<string, any>;
+
+  /** Parent graph, or null at the root. */
+  parent: PawaGraph | null;
+
+  /** Child ownership graphs (nested components and control flow). */
+  children: PawaGraph[];
+
+  /** Control-flow anchor (often a comment) or related control metadata. */
+  control: Record<string, any>;
+
+  /** True until the first successful mount/continue pass completes. */
+  firstTime: boolean;
+
+  /** Whether enter transitions/hooks should run on the next paint. */
+  entrance: boolean;
+
+  /** Mount callbacks scheduled after the instance is attached. */
+  mount: Function[];
+
+  /** Enter transition/lifecycle hooks (e.g. Transition onEnter). */
+  onEnter: Function[];
+
+  /** Cross-boundary bag (e.g. values carried across component graphs). */
+  transport: Record<string, any>;
+
+  /** Previous graph or boundary context when replacing an instance. */
+  former: any;
+
+  /** Exit transition/lifecycle hooks; may be async. */
+  onExit: Function[];
+
+  /** Cleanup callbacks run on teardown (subscriptions, timers, etc.). */
+  unMount: Function[];
+
+  /** Effect disposer functions registered under this graph. */
+  effect: Function[];
+
+  /** Server/client prop-recall handlers when props change after continue. */
+  reProps: any[];
+
+  /** Template/evaluation context for this instance. */
+  context: Record<string, any>;
+
+  /** Debug or component display name. */
+  name: string;
+
+  /** Effects that do not write (read-only tracking helpers). */
+  readOnlyffect: any[];
+
+  /** List/array-driven effects (e.g. for-each drivers). */
+  arrayEffect: any[];
+
+  /** Callbacks run before mount. */
+  beforeMount: Function[];
+
+  /** When true, teardown should dispose this node and descendants. */
+  kill: boolean;
+
+  /** Inactive (paused) effect or child bookkeeping for Active-style regions. */
+  unActive: any[];
+
+  /** Whether this region is active and should apply updates. */
+  active: boolean;
+
+  /** Index among parent.children. */
+  index: number;
+
+  /** Runs all registered effect disposers. */
+  terminate: () => void;
+
+  /**
+   * Moves this node's DOM (and nested structure) relative to a comment anchor.
+   * Used for list reorder and branch placement.
+   */
+  move: (comment?: any) => void;
+
+  /**
+   * Resolves the underlying DOM element(s) from ref chains.
+   * @param all When true, collect multiple roots (e.g. template graphs).
+   * @param and Reserved/extension flag for multi-root resolution.
+   */
+  getElement: (all?: boolean, and?: boolean) => any;
+
+  /** Removes this node from parent.children. */
+  fromParent: () => void;
+
+  /** Marks this node and all descendants with kill for teardown. */
+  killDown: () => void;
+
+  /** Refreshes ref after DOM swap or continue adopt. */
+  updateRef: () => void;
+
+  /**
+   * Tears down lifecycle, effects, and DOM for this subtree.
+   * @param node When true, prefer node-level removal semantics.
+   */
+  remove: (node?: boolean) => Promise<any>;
+
+  /**
+   * Renders or continues into an element.
+   * @param refresh When false, bind the host only (continue / no deep child walk).
+   */
+  render?: (el: HTMLElement, refresh?: boolean) => void;
+
+  /** Replaces the evaluation context used by nested render. */
+  setContext?: (contexts: Record<string, any>) => void;
+
+  /** Extension bag for SSR flags, plugins, and internal metadata. */
+  [key: string]: any;
 }
 
+/**
+ * Runtime dev metadata produced by the Pawa debugging tools.
+ * Tracks errors, effect/render counts, and coarse performance samples.
+ */
 export interface PawaDev {
-    tool: boolean;
-    errors: any[];
-    totalEffect: number;
-    errorState: any;
-    components: Set<any>;
+  /** Whether the debug tool layer is active. */
+  tool: boolean;
+
+  /** Collected runtime errors and warnings. */
+  errors: any[];
+
+  /** Number of effects registered or run while debugging. */
+  totalEffect: number;
+
+  /** Number of render passes observed. */
+  renderCount: number;
+
+  /** Timing samples for renders, effects, and components. */
+  performance: {
+    /** Render durations (ms samples). */
+    renderTime: number[];
+    /** Effect durations (ms samples). */
+    effectTime: number[];
+    /** Component setup durations (ms samples). */
+    componentTime: number[];
+    /** Session or batch start timestamp. */
+    start: number;
+    /** Session or batch end timestamp. */
+    end: number;
+  };
+
+  /** Live component set or aggregated component count. */
+  components: Set<any> | number;
+
+  /** Subscribers notified on debug events. */
+  listeners: Set<Function>;
+
+  /**
+   * Subscribes to debug bus events.
+   * @returns Unsubscribe function.
+   */
+  subscribe(cb: (event: { type: string; data: any }) => void): () => void;
+
+  /** Emits a debug event to all subscribers. */
+  emit(type: string, data: any): void;
+
+  /**
+   * Records a structured error or warning for the dev overlay and logs.
+   */
+  setError(options?: {
+    el?: HTMLElement;
+    msg?: string;
+    directives?: string;
+    stack?: string;
+    template?: string;
+    warn?: boolean;
+    effect?: any;
+    ref?: any;
+    exp?: string;
+  }): any;
+
+  /** Clears the collected error list. */
+  clearErrors(): void;
+
+  /** Returns a serializable snapshot of debug counters and errors. */
+  getSnapshot(): {
     renderCount: number;
-    performance: {
-        renderTime: number[];
-        effectTime: number[];
-        componentTime: number[];
-        start: number;
-        end: number;
-    };
-    _originalStyles: Map<any, any>;
-    listeners: Set<Function>;
-    highlightElement(el: HTMLElement): void;
-    unhighlightElement(el: HTMLElement): void;
-    subscribe(cb: (event: { type: string; data: any }) => void): () => void;
-    emit(type: string, data: any): void;
-    setError(options?: {
-        el?: HTMLElement;
-        msg?: string;
-        directives?: string;
-        stack?: string;
-        template?: string;
-        warn?: boolean;
-    }): void;
-    clearErrors(): void;
-    getSnapshot(): {
-        renderCount: number;
-        totalEffect: number;
-        performance: any;
-        errors: any[];
-        componentCount: number;
-    };
-    logRender(c: any, t: any): void;
-    logEffect(e: any, t: any): void;
-    logComponent(n: any, t: any): void;
-}
-type StateContextType={
-    _name:string,
-    _props:object,
-    _formerStateContext:stateContextType,
-    _elementContext:object,
-    _template:string,
-    _reactiveProps:object,
-    _restProps:object,
-    _hasRun:boolean,
-    _transportContext:object,
-    _static:any[],
-    _serializedData:object,
-    _formerContext:stateContextType,
-    _resume:boolean,
-    _suspense:string,
-    _hmr:boolean,
-    _hook:{
-        beforeMount:Function[],
-        reactiveEffect:Function[],
-        effect:Function[],
-        isMount:Function[],
-        isUnMount:Function[]
-    }
-}
-export const statecontext:StateContextType
+    totalEffect: number;
+    performance: any;
+    errors: any[];
+    componentCount: number;
+    [key: string]: any;
+  };
 
-declare global {
-    var __pawaDev: PawaDev;
-    var __pawaStream: (element: HTMLElement, context: any, statecontext?: any) => void;
+  /** Logs a render timing sample. */
+  logRender(c: any, t: any): void;
+
+  /** Logs an effect timing sample. */
+  logEffect(e: any, t: any): void;
+
+  /** Logs a component setup timing sample. */
+  logComponent(n: any, t: any): void;
 }
 
-export interface PawaComment extends Comment {
-    _index: number | null;
-    _el: Comment;
-    _setCoveringElement: (el: any) => void;
-    _data: Record<string, any>;
-    _terminateEffects: Set<Function>;
-    _run: any;
-    _coveringElement: any;
-    _setData: (obj: any) => void;
-    _removeSiblings: (endComment: any) => void;
-    _controlComponent: boolean;
-    _componentTerminate: Function | null;
-    _componentElement: any;
-    _setComponentOut: any;
-    _deleteEffects: () => void;
-    _remove: () => void;
-    _terminateByComponent: (endComment: any) => void;
-    _forKey: string | null;
-    _forIndex: any;
-    _setKey: (arg: any) => void;
-    _endComment: Comment | null;
-    _keyRemover: (callback?: Function, firstElement?: boolean) => Promise<void>;
-    _resetForKeyElement: () => DocumentFragment;
-    _deletKey: () => void;
-    forKeyResetElement(): DocumentFragment;
-    keyRemoveElement(callback?: Function, firstElement?: boolean): Promise<void>;
-    deleteKey(): void;
-    setForKey(arg: any): void;
-    terminateEffects(): void;
-    setCoveringElement(el: any): void;
-    setData(obj: any): void;
-    terminate(endComment: any): void;
-    remove(): void;
-    removeSiblings(endComment: any): void;
+/**
+ * HTMLElement augmented with Pawa runtime fields after render/continue.
+ */
+export interface PawaElement extends HTMLElement {
+  /** Active template/evaluation context for this element. */
+  context: object;
+
+  /** Owning structure graph for this host, when bound. */
+  graph: PawaGraph;
+
+  /**
+   * Runs a keyframe-style animation helper when provided by the runtime.
+   * @param frames Class or style frame list.
+   */
+  animation: (frames: string[]) => Promise<void>;
+
+  /** Runtime-added fields (bindings, markers, etc.). */
+  [key: string]: any;
+}
+/**
+ * Context handle used by the component context API.
+ */
+export interface ContextHandle<T = any> {
+  id: string;
+  setValue: (val?: T) => void;
 }
 
-export interface AttriPlugin {
-    startsWith?: string;
-    fullName?: string;
-    mode?: null | 'client' | 'server';
-    dependency?: string[];
-    plugin: (el: HTMLElement | PawaElement, attr: { name: string; value: string }, stateContext?: any, notRender?: any, stopResume?: any) => void;
-}
-
-export interface PluginObject {
-    attribute?: {
-        register: AttriPlugin[];
-    };
-    component?: {
-        beforeCall?: (stateContext: any, app: any) => void;
-        afterCall?: (stateContext: any, el: HTMLElement) => void;
-    };
-    renderSystem?: {
-        beforePawa?: (el: HTMLElement, context: any) => void;
-        afterPawa?: (el: PawaElement) => void;
-        beforeChildRender?: (el: PawaElement) => void;
-    };
-}
-
+/**
+ * Input accepted by the state factory.
+ */
 export type StateInput<T> = T | (() => T) | (() => Promise<T>);
 
+/**
+ * Reactive state container.
+ */
 export interface State<T> {
-    value: T;
-    readonly id: string;
-    async?: boolean;
-    failed?: boolean;
-    retry?: () => void;
+  value: T;
+  readonly id: string;
+  async?: boolean;
+  failed?: boolean;
+  retry?: () => void;
 }
 
-export function setErrorCALLER(callback: (message: any) => void): void;
+/**
+ * Plugin callback signature used by the dev-plugin system.
+ */
+export interface PluginCallback {
+  (el: HTMLElement | PawaElement, attr: { name: string; value: string }, graph?: any, context?: any): void | (() => void);
+}
 
-export function pluginsMap(): {
-    compoAfterCall: Set<Function>;
-    compoBeforeCall: Set<Function>;
-    renderAfterPawa: Set<Function>;
-    renderBeforePawa: Set<Function>;
-    renderBeforeChild: Set<Function>;
-    startsWithSet: Set<string>;
-    fullNamePlugin: Set<string>;
-    externalPlugin: Record<string, Function>;
-    externalPluginMap: Map<string, string[]>;
-    primaryDirective: Set<string>;
-    pawaAttributes: Set<string>;
-    allowAsProp: Set<string>;
+/**
+ * Attribute plugin declaration.
+ */
+export interface AttriPlugin {
+  startsWith?: string;
+  fullName?: string;
+  mode?: null | 'client' | 'server';
+  dependency?: string[];
+  plugin: PluginCallback;
+}
+
+
+
+/**
+ * Starts the Pawa application and mounts the root graph into the given element.
+ * @param el The root application container.
+ * @param context Optional render context.
+ */
+export const pawaStartApp: (el: HTMLElement, context?: Record<string, any>) => void;
+
+/**
+ * Enables or disables the developer tooling.
+ * @param enabled Toggle the runtime debugger.
+ */
+export const pawaDebug: (enabled?: boolean) => PawaDev;
+
+/**
+ * Sets the development mode flag and creates the debug instance.
+ * @param enabled Whether debug mode should be active.
+ */
+export const setDevelopment: (enabled?: boolean) => PawaDev;
+
+/**
+ * Returns the active development flag.
+ */
+export const getDevelopment: () => boolean;
+
+/**
+ * Enables or disables the Pawa debug runtime.
+ * @param enabled Debug flag.
+ */
+export const setDev: (enabled?: boolean) => PawaDev;
+
+/**
+ * Registers a custom directive plugin.
+ * @param name Plugin name.
+ * @param callback Plugin callback.
+ */
+export const Plugin: (name: string, callback: PluginCallback) => void;
+
+/**
+ * Creates a reactive state container.
+ * @param initialValue Initial state value or a factory function.
+ * @param section Optional storage key or dependency list.
+ */
+export const $state: <T>(initialValue: StateInput<T>, section?: string | null | Function[] | Object[] | string[]) => State<T>;
+
+/**
+ * Detects whether a value is a Pawa proxy.
+ * @param value Value to inspect.
+ */
+export const isProxy: (value: any) => boolean;
+
+/**
+ * Conditional visibility helper component.
+ */
+export const Active: (props: { show: () => boolean; [key: string]: any }) => string;
+
+/**
+ * Transition helper for enter/exit animation hooks.
+ */
+export const Transition: (props: {
+  name?: () => string;
+  duration?: () => number;
+  enter?: () => any;
+  exit?: () => any;
+  [key: string]: any;
+}) => string;
+
+/**
+ * Exposes variables into the current component template scope.
+ * @param obj Variables to expose.
+ */
+export const useInsert: (obj?: Record<string, any>) => void;
+
+/**
+ * Creates a ref object.
+ */
+export const useRef: <T = any>() => { value: T | null };
+
+/**
+ * Tagged template helper for HTML strings.
+ */
+export const html: {
+  (strings: TemplateStringsArray, ...values: any[]): string;
+  (template: string): string;
 };
-export function  PawaCustomEvent(eventType:string,handler:(el:PawaElement,modifiers:Set<string>,options:{
-        capture: Boolean,
-        once: Boolean,
-        passive: Boolean
-    },execute:(e:EventListener)=>void)=>void):void;
-export const escapePawaAttribute: Set<string>;
-export const dependentPawaAttribute: Set<string>;
-
-/**
- * Removes a plugin by name.
- * @param {...string} pluginName - Names of plugins to remove.
- */
-export function removePlugin(...pluginName: string[]): void;
-
-/**
- * Registers plugins to extend PawaJS capabilities.
- * @param {...(() => PluginObject)} func - Functions returning plugin definitions.
- */
-export function PluginSystem(...func: (() => PluginObject)[]): void;
-
-export function keepContext(context: any): void;
-
-export const components: Map<string, Function>;
-
-export const lazyComponents: Map<string, any>;
-
-/**
- * Internal registry for tracking elements awaiting lazy component loading.
- */
-export const lazyComponentElement: Map<string, { element: PawaElement; func: Function }[]>;
-
-export function addLazyComponentElement(element: PawaElement, func: Function): void;
-
-export function createIntersectionObserver(element: HTMLElement, observeBy?: HTMLElement): IntersectionObserver;
-
-export const HmrComponentMap: Map<string, any>;
-
-export function getCurrentContext(): any;
-
-export function setPawaAttributes(...attr: string[]): void;
-
-export function getDependentAttribute(): Set<string>;
-
-export function getPawaAttributes(): Set<string>;
-
-export function getPrimaryDirectives(): Set<string>;
-
-/**
- * Registers components for use in templates.
- * @param {...(string | Function)} args - Component functions or (name, function - done by pawajs-vite-plugin automaticly) pairs.
- */
-export function RegisterComponent(...args: (string | Function)[]): void;
-
-export namespace RegisterComponent {
-    /**
-     * Registers components lazily. The component's bundle is only fetched during runime encounter.
-     * (name,import) or ([names,...],import)
-     */
-    export function lazy(...arg:Array<string|Function|Array<string>>): Promise<void>;
-}
-/**
- * Runs a side effect or lifecycle hook.
- * @param {(comment:PawaComment) => void | (() => void)} callback - Effect function,comment for component hacking and optionally returning cleanup .
- * @param {any[] | object | number | null} [deps] - Dependencies or hook type (null=mount).
- * # number - beforemount 
- * # null - onMount
- * # array[...deps] - dependency reactive
- * # object<{component:true}|any element from ref> - read alone effect tied to either the component or element
- */
-export function runEffect(callback: (comment:PawaComment) => void | (() => void), deps?: any[] | object | number | null): void;
-
-
-export interface PropValidation {
-    strict?: boolean;
-    err?: string;
-    default?: any;
-    type?: Function | Function[];
-}
-
-export function useValidateComponent(component: Function, object: Record<string, PropValidation>): void;
-
-export interface ContextHandle<T = any> {
-    id: string;
-    setValue: (val?: T) => void;
-}
 
 /**
  * Creates a context provider handle.
- * @template T
- * @returns {ContextHandle<T>} Handle to set context values.
  */
-export function setContext<T = any>(): ContextHandle<T>;
+export const setContext: <T = any>() => ContextHandle<T>;
 
 /**
- * Consumes a context value.
- * @template T
- * @param {ContextHandle<T>} context - The context handle.
- * @returns {T} The context value.
+ * Reads a context value from the currently active component graph.
+ * @param context Context handle returned by setContext().
  */
-export function useContext<T = any>(context: ContextHandle<T>): T;
+export const useContext: <T = any>(context: ContextHandle<T>) => T | undefined;
 
 /**
- * Gets the context from the parent Element 
- * @template T
- * @returns {T}
+ * Validates a component's prop contract.
+ * @param component Component constructor.
+ * @param object Prop validation map.
  */
-export function useInnerContext<T=any>(): T;
+export const useValidateComponent: (component: Function, object: Record<string, any>) => void;
 
 /**
- * Tells pawa-ssr to serialize the children prop.
- * Then pawajs adds it into the component unpon re-execution
- * @returns {void}
+ * Registers one or more component constructors into the global registry.
  */
-export function accessChild(): void;
-/**
- * Tells pawa-ssr to serialized data.
- * Then pawajs continuity model de-serializes it and adds to the rendering context or getServerData hook
- * @returns {{setServerData:(data:object)=>void,getServerData:()=>any}}
- */
-export function useServer<T = Record<string, any>>(): {
-    setServerData: (data: T) => void;
-    getServerData: () => T;
+export const RegisterComponent: {
+  (...args: Array<string | Function>): void;
+  /**
+   * Registers lazy components keyed by name.
+   */
+  lazy: (...args: Array<string | string[] | Function>) => Promise<void>;
 };
 
 /**
- * Stores the component instance into the returned $async hook.
- * Used in async component.
- * Must be called before any await call
- * + uses onSuspense for loading state before any await
+ * Runs a lifecycle or reactive side effect.
+ * @param callback Effect callback.
+ * @param deps Dependency set or lifecycle mode.
  */
-export function useAsync(): { $async: <T>(callback: () => T) => T ,onSuspense:(html:string)=>void};
+export const runEffect: (callback: (comment?: any) => void | (() => void), deps?: any[] | object | number | null) => void;
 
 /**
- * Returns TRUE when pawajs is in continous rendering mode from ssr
+ * Reads the parent component context.
  */
-export function isResume(): boolean;
+export const useInnerContext: <T = any>() => T | undefined;
 
 /**
- * Forwards props to the child component.
- * @param {Record<string, any>} [props] - Props to forward.
+ * Forwards props into the current component scope.
+ * @param props Props object to forward.
  */
-export function forwardProps(props?: Record<string, any>): void;
+export const forwardProps: (props?: Record<string, any>) => void;
 
 /**
- * Exposes variables to the template scope.
- * @param {Record<string, any>} [obj] - Variables to expose.
+ * Mounts the visual devtools panel.
+ * @param options Optional devtools options.
  */
-export function useInsert(obj?: Record<string, any>): void;
-
-export function setStateContext(context: any): any;
-export function globalRerender(el:HTMLElement | string,formercontext:StateContextType,context:any)
-/**
- * Creates a reactive state.
- * @template T
- * @param {StateInput<T>} initialValue - Initial value or generator function.
- * @param {string | null | string[]} [section] - Persistence key or dependency array.
- * @returns {State<T>} Reactive state object.
- */
-export function $state<T>(initialValue: StateInput<T>, section?: string | null | Function[] | Object[] | string[]): State<T>;
-
-export function restoreContext(state_context: any): void;
+export const mountPawaDevtools: (options?: { open?: boolean }) => () => void;
 
 /**
- * Creates a reference object.
- * @template T
- * @returns {{ value: T | null }} Ref object.
+ * Removes the devtools panel from the page.
  */
-export function useRef<T = any>(): { value: T | null };
+export const unmountPawaDevtools: () => void;
 
 /**
- * Renders a component or element.
- * @param {HTMLElement} el - Target element.
- * @param {object} [contexts] - Context.
- * @param {any} [notRender] - Internal.
- * @param {boolean} [isName] - Internal.
+ * Exposes the current root graph instance.
  */
-export function render(el: HTMLElement, contexts?: object, notRender?: any, isName?: boolean): void;
+export const RootGraph: any;
 
 /**
- * Initializes and starts the Pawa application.
- * @param {HTMLElement} app - Root element.
- * @param {Record<string, any>} [context] - Initial context.
+ * Updates the current component graph.
  */
-export function pawaStartApp(app: HTMLElement, context?: Record<string, any>): void;
+export const setComponentGraph: (graph: any) => void;
 
 /**
- * Tagged template literal for HTML strings. Enables syntax highlighting in compatible editors.
- * @param {TemplateStringsArray} strings
- * @param {...any} values
+ * Reads the current component graph.
  */
-export function html(strings: TemplateStringsArray, ...values: any[]): string;
+export const getComponentGraph: () => any;
 
-declare const Pawa: {
-    useInsert: typeof useInsert;
-    useContext: typeof useContext;
-    useValidateComponent: typeof useValidateComponent;
-    setPawaAttributes: typeof setPawaAttributes;
-    setContext: typeof setContext;
-    $state: typeof $state;
-    pawaStartApp: typeof pawaStartApp;
-    useAsync: typeof useAsync;
-    useInnerContext: typeof useInnerContext;
-    RegisterComponent: typeof RegisterComponent;
-    forwardProps: typeof forwardProps;
-    runEffect: typeof runEffect;
-    html: typeof html;
+/**
+ * Creates a persistent store that mirrors a state value in localStorage.
+ * @param createCall Factory that returns the initial state value.
+ * @param name Storage key.
+ */
+export const useStorage: (createCall: () => any, name: string) => any;
+
+/**
+ * Schedules a reactive update batch.
+ * @param callback Callback to run through the scheduler.
+ */
+export const schedule: (callback: () => void) => void;
+
+/**
+ * Creates a render graph node.
+ * @param graph Optional parent graph.
+ */
+export const Graph: (graph?: any) => PawaGraph;
+
+/**
+ * Creates or reuses the render graph used by the runtime.
+ */
+export const PawaRender: (graph: any, contexts?: Record<string, any>) => {
+  render: (el: HTMLElement, refresh?: boolean) => void;
+  renderGraph: PawaGraph;
+  setContext: (contexts: Record<string, any>) => void;
 };
 
-export default Pawa;
+declare global {
+  var __pawaDev: PawaDev;
+  var __PAWA_DEBUG__: boolean;
+}
