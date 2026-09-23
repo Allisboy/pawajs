@@ -26,12 +26,12 @@ export const setContext = () => {
         const id = crypto.randomUUID()
         const setValue = (val = {}) => {
             const componentGraph=getComponentGraph()
-            if (!componentGraph.firstTime) {
-                return
-            }
             if (!componentGraph) {
                 console.warn('set Context value must be inside of a component')
                 return null
+            }
+            if (!componentGraph.firstTime) {
+                return
             }
             if (!componentGraph.transport) {
                 componentGraph.transport = {}
@@ -173,11 +173,8 @@ Object.assign(componentGraph.context, obj)
                 if (!outsideComponent) {
                     renderGraph.readOnlyffect.push({ deps, effect: callback })
                 }else{
-                    
-                    let terminateEffect=new Set()
-                    const mainFunction=callback()
                    const eff= createEffect(()=>{
-                        const cleanUp=mainFunction?.()
+                        const cleanUp=callback?.()
                         if (typeof cleanUp === 'function') {
                             return cleanUp
                         }

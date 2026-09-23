@@ -25,3 +25,18 @@ export const Transition = ({ name, duration, enter, exit, ...props }) => {
   return html`<slot -- ></slot>`;
 };
 Transition.client=true
+
+useValidateComponent(Transition,{
+  duration:{
+    type:Number,
+    default:300
+  },
+  enter:{
+    type:Array,
+    default:['opacity:0','opacity:1']
+  },
+  exit:{    
+    type:Array,
+    default:['opacity:1','opacity:0']
+  }
+})

@@ -139,7 +139,7 @@ export const ElementProperty=(el,name,value,graph,context)=>{
 
         if(propertyName.includes('.')){
             return setToProperties(el,propertyName,value)
-        }else if(pluginMap.has(name)){
+        }else if(pluginMap.has(name) && typeof window !== 'undefined' && graph){
             initializePlugin(name,el,graph,{name,value},context)
             return true
         }

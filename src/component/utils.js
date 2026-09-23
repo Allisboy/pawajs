@@ -105,7 +105,7 @@ const getPropFromAttributes = (el,context) => {
         if (!prop[name]) {
           if(name === 'class')prop['className']=toProp
           if(name === 'default')prop['defaultValue']=toProp
-          if (name !== 'class' && name !== 'defualt' ) {
+          if (name !== 'class' && name !== 'default' ) {
               
               prop[name]=toProp
             }
@@ -332,8 +332,8 @@ export const setSlot=(el,slot)=>{
     for (const element of Array.from(getAllslot)) {
         if (element.attributes.length > 0 && element.getAttribute('name') !== 'default') {
             for (const child of Array.from(element.children)) {
-                    const parent=seen.parentElement
-                    parent.insertBefore(child,seen)
+                    const parent=element.parentElement
+                    parent.insertBefore(child,element)
                 }
                 element.remove()
         }

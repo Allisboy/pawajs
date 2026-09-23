@@ -10,6 +10,7 @@ PawaJS (reactive web runtime) is a JavaScript library designed for building dyna
 PawaJS is a **reactive web runtime** for HTML-first UIs: components, directives, and fine-grained `$state` updates with **no virtual DOM**.
 
 On the client it powers widgets through SPAs. With **pawa-ssr** and **pawajs-continue** it uses **selective continue** (SCP): the server sends HTML plus a sparse index of reactive areas; the client continues only those areas. **Static components are stripped** from that index so they are not re-executed on the client.
+pawajs@2.4.0-beta.4 — ~6.6 kB min+gzip (Bundlephobia)
 🌐 **Website:** [pawajs.vercel.app](https://pawajs.vercel.app)
 
 

@@ -26,6 +26,9 @@ export const PawaRender=(graph,contexts)=>{
     const renderGraph=Graph(graph)
     const server=typeof window === 'undefined'
     const render=(el,refresh=true)=>{
+        if (el.hasAttribute('pawa-avoid')) {
+            return
+        }
             try {
         const manifest=createManifest(el)
         let control={
@@ -74,7 +77,7 @@ export const PawaRender=(graph,contexts)=>{
         if(control.stop)return
         if (Array.from(el.childNodes).some(node =>
             node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('@{')
-        )) {
+        ) && refresh) {
             text(el,context,renderGraph)
         }
         if(control.stop)return

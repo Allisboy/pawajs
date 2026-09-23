@@ -28,41 +28,39 @@ const handlePromise = (promise, main) => {
         main.failed = true
     })
 }
+const proxyCache = new WeakMap()
 
 const createDeepProxy = (target, callback) => {
-    // Skip proxies for DOM objects and native objects that don't work well with proxies
-    if (target instanceof FileList) return target
-    if (target instanceof File) return target
-    if (target instanceof Blob) return target
-    if (target instanceof FormData) return target
-    if (target instanceof Date) return target
-    if (target instanceof RegExp) return target
-    // Also skip if it's already a proxy
-    if (isProxy(target)) return target
-    
-    // Also skip if it's a DOM element
-    if (target && target?.nodeType && typeof target === 'object') return target
-    
-    return new Proxy(target, {
+    if (!target || typeof target !== "object") return target
+
+    if (proxyCache.has(target)) {
+        return proxyCache.get(target)
+    }
+
+    const proxy = new Proxy(target, {
         get(target, property) {
-            const value = target[property];
-            track(target, property);
-            inProxy=true
-            // Only proxy plain objects/arrays and skip if already a proxy
-            if (typeof value === "object" && value !== null && !isProxy(value)) {
-                return createDeepProxy(value, callback);
+            const value = target[property]
+            track(target, property)
+
+            if (value && typeof value === "object") {
+                return createDeepProxy(value, callback)
             }
-            return value;
+
+            return value
         },
+
         set(target, property, value) {
-            target[property] = value;
-            callback(target, property);
-            return true;
-        },
-    });
+            target[property] = value
+            callback(target, property)
+            return true
+        }
+    })
+
+    proxyCache.set(target, proxy)
     pawaProxies.add(proxy)
+
     return proxy
-};
+}
 
 export const isProxy = (value) => {
     if (typeof window === 'undefined') {
@@ -169,13 +167,14 @@ export const $state = (initialValue, section = null) => {
     }
     let enter
     let promise
-    if (initialValue instanceof Function && initialValue[Symbol.toStringTag] !== 'AsyncFunction') {
+    const isFunction = typeof initialValue === "function"
+    if (isFunction && initialValue[Symbol.toStringTag] !== 'AsyncFunction') {
         const result = initialValue()
         
         states.value = result
         
     }    
-    else if (initialValue[Symbol.toStringTag] === 'AsyncFunction') {
+    else if (isFunction && initialValue[Symbol.toStringTag] === 'AsyncFunction') {
        states.value=null
         let result
         
@@ -242,7 +241,7 @@ export const $state = (initialValue, section = null) => {
         }
     });
     if (Array.isArray(section)) {
-        if (graph?.firstime === false && typeof initialValue === 'function') {
+        if (graph?.firstTime === false && typeof initialValue === 'function') {
             const cleanup=stateWatch(()=>{
                 main.value=initialValue()
             },section)
@@ -275,27 +274,22 @@ export const stateWatch = (callback, dependencies) => {
         return;
     }
     const dep = new Set();
-    let effect=null
-    if (dependencies) {
-        dependencies.forEach(d => {
-            if (typeof d === 'function') {
-               effect= createEffect(d,graph,callback)
-            } else if (d && d.id) {
-                dep.add(d.id);
-                effect=createEffect(() => d.value,graph,callback);
-            }
-        });
-        
-    }else{
-       
-      effect= callback()
+      const effects = []
+
+dependencies.forEach(d => {
+    if (typeof d === 'function') {
+        effects.push(createEffect(d, graph, callback))
+    } else if (d && d.id) {
+        effects.push(
+            createEffect(() => d.value, graph, callback)
+        )
     }
+})
 
-
-    return () => {
-        if (effect) {
-            effect();  
-        }
-        watchCallbacks.delete(callback);
-    };
+return () => {
+    for (const effect of effects) {
+        effect?.()
+    }
+    watchCallbacks.delete(callback)
+}
 };

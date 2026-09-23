@@ -1,4 +1,3 @@
-import { InProxyCaller } from "../hooks/state.js";
 import { ElementProperty } from "../pawaElement.js";
 import { createEffect, errorControl } from "../reactive.js";
 import { getContexters, safeEval } from "../utils.js";

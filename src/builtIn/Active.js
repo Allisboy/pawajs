@@ -1,5 +1,6 @@
 import { getComponentGraph } from "../component/index.js";
 import { forwardProps, useInsert, useValidateComponent,useRef,runEffect } from "../hooks/index.js";
+import { queueEffect } from "../reactive.js";
 
 export const Active = ({ show, ...props }) => {
     forwardProps(props)

@@ -19,7 +19,7 @@ export const Graph=(graph)=>{
         onEnter:graph?.onEnter ?[...graph?.onEnter] : [],
         transport:{},
         former:null,
-        onExit:graph?.onEnter ?[...graph?.onExit] : [],
+        onExit:graph?.onExit ?[...graph?.onExit] : [],
         unMount:[],
         effect:[],
         reProps:[],

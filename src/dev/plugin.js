@@ -1,4 +1,4 @@
-import { createEffect } from "../reactive"
+import { createEffect } from "../reactive.js"
 
 export const pluginMap=new Map()
 /**

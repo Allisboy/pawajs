@@ -1,4 +1,4 @@
-import { getContexters, safeEval } from "../utils.js";
+import {  safeEval } from "../utils.js";
 
 export const ref=(el,attr,context,graph)=>{
     

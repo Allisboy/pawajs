@@ -1,6 +1,5 @@
 import { getComponentGraph, keepComponentGraph } from "../component/index.js";
 import { PawaRender } from "../graph/index.js";
-import { createEffect } from "../reactive.js";
 import { getContexters, safeEval } from "../utils.js";
 export const Awaits=(el, attr, context, componentContext, graph)=>{
     const comment = document.createComment("Await");
