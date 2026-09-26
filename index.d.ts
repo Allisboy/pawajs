@@ -315,6 +315,21 @@ export const setDevelopment: (enabled?: boolean) => PawaDev;
  */
 export const getDevelopment: () => boolean;
 
+/** Evaluates an expression using the supplied Pawajs context. */
+export const safeEval: (expression: string, context?: Record<string, any>, resolve?: boolean) => any;
+
+/** Registered component constructors, keyed by their normalized names. */
+export const components: Map<string, Function>;
+
+/** Components currently associated with hot reload updates. */
+export const hmrComponentsMap: Map<string, any[]>;
+
+/** Registered lazy component loaders. */
+export const lazyComponents: Map<string, any>;
+
+/** DOM elements waiting for their lazy component to load. */
+export const lazyComponentElement: Map<string, any[]>;
+
 /**
  * Enables or disables the Pawa debug runtime.
  * @param enabled Debug flag.
@@ -422,17 +437,6 @@ export const useInnerContext: <T = any>() => T | undefined;
  * @param props Props object to forward.
  */
 export const forwardProps: (props?: Record<string, any>) => void;
-
-/**
- * Mounts the visual devtools panel.
- * @param options Optional devtools options.
- */
-export const mountPawaDevtools: (options?: { open?: boolean }) => () => void;
-
-/**
- * Removes the devtools panel from the page.
- */
-export const unmountPawaDevtools: () => void;
 
 /**
  * Exposes the current root graph instance.
