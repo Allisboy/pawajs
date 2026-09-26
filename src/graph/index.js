@@ -16,6 +16,7 @@ import { splitAndAdd } from "../utils.js"
 import { Graph } from "./graph.js"
 import { createManifest, generateManifest, setManifest } from "./setup.js"
 import { errorControl } from "../reactive.js"
+import { getDev } from "../dev/index.js"
 
 
 const PawaAttribute={
@@ -112,7 +113,7 @@ export const PawaRender=(graph,contexts)=>{
             }
         }
         el.graph=renderGraph
-        el.context=context
+        el.context=getDev()?{...context}:{}
         const entrance=renderGraph.onEnter
         const exit=renderGraph.onExit
         if (renderGraph.nodeType === 'template' && refresh && renderGraph?.next) {

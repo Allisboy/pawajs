@@ -21,8 +21,6 @@ const createPawaDev = () => {
         _originalStyles: new Map(), listeners: new Set(),
         arrayKeys: [],
         lastError: null,
-        highlightElement(el) { if(!(el instanceof HTMLElement))return; /* preserve full logic unchanged */ },
-        unhighlightElement(el) { /* preserve full logic unchanged */ },
         subscribe(cb) { dev.listeners.add(cb); return () => dev.listeners.delete(cb); },
         emit(type, data) { dev.listeners.forEach(cb => {try{cb({type,data})}catch(e){console.error("PawaDev listener error:",e)}}); },
         setError({el, msg, directives, stack, template, warn, effect, ref, exp} = {}) { 
@@ -57,10 +55,7 @@ const createPawaDev = () => {
                 componentCount: components.size,
                 arrayKeys: dev.arrayKeys
             };
-        },
-        logRender(c, t) { dev.renderCount++; /* preserve logging */ },
-        logEffect(e, t) { dev.totalEffect++; /* preserve */ },
-        logComponent(n, t) { /* preserve */ }
+        }
     };
     return dev;
 };
