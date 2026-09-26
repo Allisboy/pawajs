@@ -1,7 +1,6 @@
 import { Active } from "./src/builtIn/Active.js";
 import { Transition } from "./src/builtIn/viewTransition.js";
 import { getDev, setDev } from "./src/dev/index.js";
-import { mountPawaDevtools, unmountPawaDevtools } from "./src/dev/tools.js";
 import { Plugin } from "./src/dev/plugin.js";
 import { Graph } from "./src/graph/graph.js";
 import { PawaRender } from "./src/graph/index.js";
@@ -70,4 +69,4 @@ export {
   setDev
 };
 
-export { mountPawaDevtools, unmountPawaDevtools, RootGraph };
+export { RootGraph };

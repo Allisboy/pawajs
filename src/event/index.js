@@ -1,4 +1,3 @@
-import { getComponentGraph } from "../component/index.js";
 import { customEventMap } from "../global.js";
 import { getContexters, safeEval } from "../utils.js";
 

@@ -1,3 +1,5 @@
+import { getDev } from "../dev/index.js"
+
 export const Graph=(graph)=>{
     const newGraph={
         ref:null,
@@ -19,7 +21,7 @@ export const Graph=(graph)=>{
         onEnter:graph?.onEnter ?[...graph?.onEnter] : [],
         transport:{},
         former:null,
-        onExit:graph?.onExit ?[...graph?.onExit] : [],
+        onExit:graph?.onEnter ?[...graph?.onExit] : [],
         unMount:[],
         effect:[],
         reProps:[],
@@ -37,6 +39,26 @@ export const Graph=(graph)=>{
                 element()
             }  
         },
+        insertAfter: (node) => {
+    if (newGraph.nodeType === 'template') {
+         for (const element of newGraph.children) {
+                    
+                if (element.nodeType === 8) {
+                    comment.parentElement.after(node)
+                }else if (element.nodeType === 1) {
+                    comment.parentElement.after(node)
+                }else{
+                    element.insertAfter(node)
+                }
+            }
+    } else {
+        if (newGraph.ref.nodeType === 8 || newGraph.ref.nodeType === 1) {
+            node.after(newGraph.ref)
+        } else {
+            newGraph.ref.insertAfter(node)
+        }
+    }
+},
         move:(comment)=>{
             if (newGraph.nodeType === 'template') {
                 for (const element of newGraph.children) {
@@ -151,6 +173,8 @@ export const Graph=(graph)=>{
         graph.ref=newGraph
     }
     graph?.children?.push(newGraph)
-    
+    if (!getDev()) {
+        newGraph.context={}
+    }
     return newGraph
 }

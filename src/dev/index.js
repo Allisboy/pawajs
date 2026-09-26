@@ -1,5 +1,4 @@
 import { components } from "../global.js";
-
 let devTool=false
 export const setDev=(devs=false)=>{
     devTool = Boolean(devs)

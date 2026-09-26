@@ -84,72 +84,123 @@ export const initializer=(el, attr, context,comment,renderGraph,componentGraph,a
         keyCaches.set(cacheKey, finalKey)
         return finalKey
     }
-    const createItem=(newElement,item,key,index)=>{
-         const itemContext={
-                ...context,
-                [arrayItem]:item,
-                [indexes]:index
-            }
-            
-        const {render:rend,renderGraph:newGraph}=PawaRender(renderGraph,itemContext)
-        newGraph.nodeType='for-key'
-        newGraph.key=key
-        newElement.removeAttribute('for-key')
-        comment.parentElement.insertBefore(newElement, comment)
-        keepComponentGraph(componentGraph)
-        rend(newElement)
-        return newGraph
+    const createItem = (newElement, item, key, index, anchor) => {
+    const itemContext = {
+        ...context,
+        [arrayItem]: item,
+        [indexes]: index
     }
+    const {render: rend, renderGraph: newGraph} = PawaRender(renderGraph, itemContext)
+    newGraph.nodeType = 'for-key'
+    newGraph.key = key
+    newElement.removeAttribute('for-key')
+    anchor.parentElement.insertBefore(newElement, anchor)   // CHANGED: was `comment.parentElement.insertBefore(newElement, comment)`
+    keepComponentGraph(componentGraph)
+    rend(newElement)
+    return newGraph
+}
+    let updateGen = 0
+    const applyUpdate = async ({array, arrayKey,gen}) => {
+    if (!comment.parentElement) {
+    const lastChild = renderGraph.children[renderGraph.children.length -1]
+    const ref = lastChild?.getElement()
+  
     
-    const applyUpdate=async({array,arrayKey})=>{
-        if (!comment.parentElement) {
-            const ref=renderGraph.getElement()
+    if (ref?.parentElement) {
+        ref.after(comment)   // AFTER, not insertBefore — comment must sit at the true tail
+    }
+}
+
+    const oldChildren = renderGraph.children
+    const oldKeyToChild = new Map(oldChildren.map(c => [c.key, c]))
+    const nextKeys = new Set(arrayKey)
+
+    const removed = oldChildren.filter(child => !nextKeys.has(child.key))
+    removed.forEach(child => child.killDown())
+    await Promise.all(removed.map(child => child.remove()))
+    if (gen !== updateGen) return
+    const nextChildren = arrayKey.map(key => oldKeyToChild.get(key) ?? null)
+
+    const oldKeyToOldIndex = new Map(oldChildren.map((c, idx) => [c.key, idx]))
+    const survivingOldIndices = []
+    const survivingNewIndices = []
+    arrayKey.forEach((key, newIndex) => {
+        if (oldKeyToOldIndex.has(key)) {
+            survivingOldIndices.push(oldKeyToOldIndex.get(key))
+            survivingNewIndices.push(newIndex)
+        }
+    })
+    const lisIndices = longestIncreasingSubsequenceIndices(survivingOldIndices)
+    const stableNewIndices = new Set(lisIndices.map(i => survivingNewIndices[i]))
+
+    // Walk backward, tracking the correct DOM anchor for "the position right
+    // after where we currently are" — NOT a fixed node. This is what actually
+    // preserves the single-anchor trick's correctness while skipping no-op moves.
+    let anchor = comment
+    for (let i = arrayKey.length - 1; i >= 0; i--) {
+        const key = arrayKey[i]
+        let child = nextChildren[i]
+        if (child) {
+            if (!stableNewIndices.has(i)) {
+                child.move(anchor)   // only real moves touch the DOM
+            }
+            // stable or just-moved: either way, this item's element is now
+            // the correct thing to anchor the NEXT (earlier) item against
+            anchor = child.getElement() ?? anchor
             
-            if (ref?.parentElement) ref.parentElement.insertBefore(comment,ref)
+        } else {
+            nextChildren[i] = createItem(el.cloneNode(true), array[i], key, i,anchor)
+            anchor = nextChildren[i].getElement() ?? anchor
         }
-
-        const children=renderGraph.children.slice()
-        const nextKeys=new Set(arrayKey)
-        const removed=children.filter(child=>!nextKeys.has(child.key))
-        removed.forEach(child=>child.killDown())
-        await Promise.all(removed.map(child=>child.remove()))
-        
-        const existing=new Map(children
-            .filter(child=>nextKeys.has(child.key))
-            .map(child=>[child.key,child]))
-        const nextChildren=new Array(arrayKey.length)
-
-        for (let i=arrayKey.length-1; i>=0; i--) {
-            const key=arrayKey[i]
-            const existingChild=existing.get(key)
-            if (existingChild) {
-                existing.delete(key)
-                existingChild.move(comment)
-                nextChildren[i]=existingChild
-            }else{
-                nextChildren[i]=createItem(el.cloneNode(true),array[i],key,i)
-            }
-        }
-        renderGraph.children=nextChildren
-        if (arrayKey.length > 0) comment.remove()
     }
 
-    const enqueueUpdate=(array,arrayKey)=>{
-        pendingUpdate={array,arrayKey}
-        if (updateScheduled)return
-        updateScheduled=true
-        updatePromise=updatePromise.then(async()=>{
-            while(pendingUpdate){
-                const update=pendingUpdate
-                pendingUpdate=null
-                await applyUpdate(update)
-            }
-        }).finally(()=>{
-            updateScheduled=false
-            renderGraph.entrance=true
-        })
-    }
+    renderGraph.children = nextChildren
+}
+// Standard O(n log n) LIS-by-index helper
+function longestIncreasingSubsequenceIndices(seq) {
+  const n = seq.length
+  const tails = []
+  const prev = new Int32Array(n).fill(-1)
+  const tailsAt = [] // index into seq
 
+  for (let i = 0; i < n; i++) {
+    let lo = 0, hi = tails.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (seq[tailsAt[mid]] < seq[i]) lo = mid + 1
+      else hi = mid
+    }
+    if (lo > 0) prev[i] = tailsAt[lo - 1]
+    tailsAt[lo] = i
+    if (lo === tails.length) tails.push(seq[i])
+    else tails[lo] = seq[i]
+  }
+  const result = []
+  let idx = tailsAt[tailsAt.length - 1]
+  while (idx !== undefined && idx >= 0) {
+    result.push(idx)
+    idx = prev[idx] >= 0 ? prev[idx] : undefined
+  }
+  return result.reverse()
+}
+    
+
+const enqueueUpdate = (array, arrayKey) => {
+  pendingUpdate = { array, arrayKey, gen: ++updateGen }
+  if (updateScheduled) return
+  updateScheduled = true
+  updatePromise = updatePromise.then(async () => {
+    while (pendingUpdate) {
+      const update = pendingUpdate
+      pendingUpdate = null
+      await applyUpdate(update)
+      // if a newer pendingUpdate appeared mid-await, loop continues
+    }
+  }).finally(() => {
+    updateScheduled = false
+    renderGraph.entrance=true
+  })
+}
     const evaluate=()=>{
        
         try {
@@ -193,8 +244,6 @@ export const initializer=(el, attr, context,comment,renderGraph,componentGraph,a
             }
 
             if (new Set(arrayKey).size !== arrayKey.length) {
-                console.log(arrayName,arrayKey);
-                
                 throw new Error(`Duplicate key in for-each: ${arrayKey}`)
             }
             enqueueUpdate(array,arrayKey)

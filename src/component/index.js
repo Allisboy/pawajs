@@ -1,4 +1,4 @@
-import { getDevelopment } from "../../index.js"
+import { getDev } from "../dev/index.js"
 import { components, hmrComponentsMap, restorePawaStateFromContext, snapshotInsert } from "../global.js"
 import { PawaRender } from "../graph/index.js"
 import { stateWatch } from "../hooks/state.js"
@@ -68,7 +68,7 @@ export const createComponent=(el,context,graph,compareGraph)=>{
       }
     try {
         const temp=sanitizeTemplate(component(mainProp))
-        if (getDevelopment() && compareGraph) {
+        if (getDev() && compareGraph) {
           restorePawaStateFromContext(compareGraph.context,renderGraph.context,compareGraph.initialInsert)
         }
         for (const effect of renderGraph.beforeMount) {
@@ -130,7 +130,7 @@ export const createComponent=(el,context,graph,compareGraph)=>{
         }
       }
      const componentName=splitAndAdd(el.tagName)
-      if (getDevelopment()) {
+      if (getDev()) {
             const id=Date.now() + Math.random()
             const removeFromHmrMap = () => {
       const array = hmrComponentsMap.get(componentName)
@@ -164,11 +164,11 @@ export const createComponent=(el,context,graph,compareGraph)=>{
     }
   
       comment.replaceWith(element)
-        setContext({...renderGraph.context})
+        setContext({...context,...renderGraph.context})
         render(element)
        
       componentGraph=former
-    //   renderGraph.context={}
+      renderGraph.context={}
       renderGraph.firstTime=false
       Promise.resolve().then(()=>{
          for (const effect of renderGraph.arrayEffect) {

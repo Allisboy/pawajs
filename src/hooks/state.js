@@ -176,31 +176,6 @@ export const $state = (initialValue, section = null) => {
     }    
     else if (isFunction && initialValue[Symbol.toStringTag] === 'AsyncFunction') {
        states.value=null
-        let result
-        
-        const setup=(result)=>{
-            if(Array.isArray(result)) {
-                let value=result.filter(r=> r.value.name === section)
-                value=value[0]
-                value=value.value
-             if (value?.success) {
-                if (enter) {
-                main.value=value.success
-                main.async=false
-                main.failed=false
-                }else{
-                    
-                states.value=value.success
-                states.async=false
-                states.failed=false
-                }
-             }else{
-                if(typeof main !== 'undefined' && enter)main.failed=true
-                else states.failed=true
-             }   
-                
-            }
-        }
         const id=graph?.id
         
         if (!id) {
@@ -209,19 +184,6 @@ export const $state = (initialValue, section = null) => {
             states.async = true
             states.failed = false
         
-        }else{
-            if (window.awaits?.[id]) {
-             setup(window.awaits[id])   
-            }else{
-            states.value=result
-            states.async = true
-            states.failed = false
-                if(!window.states[id])
-                {
-                    window.states[id]=[]
-                }
-                window.states[id].push(setup)
-            }
         }   
             
     }
@@ -250,8 +212,46 @@ export const $state = (initialValue, section = null) => {
             console.error('state compute must be inside a component and initialValue must be a function')
         }
     }
-    if (promise instanceof Promise) {
-        handlePromise(promise, main)
+    if (isFunction &&  initialValue[Symbol.toStringTag] === 'AsyncFunction') {
+        
+        if (!graph?.id) {
+            handlePromise(promise, main)
+        }else{
+            
+            let result
+            const setup=(result)=>{
+            if(Array.isArray(result)) {
+                let value=result.filter(r=> r.value.name === section)
+                value=value[0]
+                value=value.value
+             if (value?.success) {
+                
+                main.value=value.success
+                main.async=false
+                main.failed=false
+                
+             }else{
+                main.failed=true
+                main.value=value.error
+             }   
+                
+            }
+        }
+        const graphId=graph?.id
+        if (window.awaits?.[graphId]) {
+                // console.log(window.awaits[id]);
+             setup(window.awaits[graphId])   
+            }else{
+            states.value=result
+            states.async = true
+            states.failed = false
+                if(!window.states[graphId])
+                {
+                    window.states[graphId]=[]
+                }
+                window.states[graphId].push(setup)
+            }
+        }
 
         const asyncObject = {
             retry: () => {
