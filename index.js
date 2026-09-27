@@ -18,7 +18,7 @@ import {
 import { RegisterComponent } from "./src/hooks/registerComponent.js";
 import { $state, isProxy, schedule, useStorage } from "./src/hooks/state.js";
 import { getComponentGraph, setComponentGraph } from "./src/component/index.js";
-import { components, hmrComponentsMap, lazyComponents } from "./src/global.js";
+import { components, hmrComponentsMap, lazyComponentElement, lazyComponents } from "./src/global.js";
 import { safeEval } from "./src/utils.js";
 
 let RootGraph;
@@ -52,7 +52,6 @@ export {
   lazyComponents,
   hmrComponentsMap,
   components,
-  PawaRender,
   setComponentGraph,
   useStorage,
   schedule,

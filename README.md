@@ -25,7 +25,7 @@ On the client it powers widgets through SPAs. With **pawa-ssr** and **pawajs-con
 -   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
 -   **Context API:** Pass data through the component tree without having to pass props down manually at every level.
 
-- **Selective continue (SSR):** `pawa-ssr` emits HTML + SCP; `pawajs-continue` binds reactive regions only. Static UI stays plain HTML (no client re-execution).
+- **Selective continue (SSR):** `@pawa/ssr` emits HTML + SCP; `@pawajs/continue` binds reactive regions only. Static UI stays plain HTML (no client re-execution).
 ---
 -   **Plugin System:** Extend PawaJS's core functionality with custom directives and lifecycle behaviors.
 
