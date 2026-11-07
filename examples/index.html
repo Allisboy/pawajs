@@ -45,7 +45,7 @@
     </template>
     
     <div on-click="set()">From template</div>
-        <div await="promise()">
+        <div await="promise">
             <h4>This is Promise</h4>
         </div>
         <div as-fallback>
@@ -58,6 +58,7 @@
                 <span>MY OWN Counter</span>
             </div>
         </counter>
+        <async-compo></async-compo>
     </div>
     <script type="module" src="./index.js"></script>
 </body>

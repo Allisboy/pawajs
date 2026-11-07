@@ -1,14 +1,17 @@
 export let activeEffect = null;
 export const targetMap = new WeakMap();
 export const listeners = new WeakMap();
-let queue = new Set();
+let queue = new Map();
 let isFlushing = false;
 
-export const TransMap=new Map()
+export const TransMap = new Map();
 export const deleteEffect = new Set();
 
+const getDev = () =>
+  typeof globalThis !== 'undefined' ? globalThis.__pawaDev : null;
+
 export const runWithEffect = (effect, fn) => {
-  cleanupEffect(fn)
+  cleanupEffect(fn);
   const prev = activeEffect;
   activeEffect = effect;
   try {
@@ -18,29 +21,53 @@ export const runWithEffect = (effect, fn) => {
   }
 };
 
-
 const scheduled = new Set();
 let rafScheduled = false;
 const FRAME_BUDGET = 16; // milliseconds per frame
-let scheduleInProgress=false
+let scheduleInProgress = false;
+
+/**
+ * Runs the cleanup returned by the PREVIOUS run of an effect (if any).
+ * Called right before a rerun and on teardown, never right after the
+ * effect's own run.
+ */
+function runCleanup(effect, slot = '_cleanup') {
+  const c = effect[slot];
+  effect[slot] = null;
+  if (typeof c === 'function') {
+    try {
+      c();
+    } catch (error) {
+      errorControl(error);
+    }
+  }
+}
+
+/**
+ * Runs the effect's `update` (side effect) callback. Its returned function
+ * is stored, then run before the next run and on teardown, never right away.
+ */
+function runSideEffect(effect) {
+  if (!effect._sideEffect) return;
+  runCleanup(effect, '_sideCleanup'); // previous run's cleanup
+  const c = effect._sideEffect();
+  if (typeof c === 'function') effect._sideCleanup = c; // store, don't call
+}
 
 function runEffectNow(fn) {
   try {
-    if (fn?._killed) return;      // NEW
+    if (fn?._killed) return;
     const graph = fn?.el;
     if (graph && graph.kill) return;
     if (graph && !graph.active && Array.isArray(graph?.unActive)) {
-      const i = graph.unActive.indexOf(fn)
-      if (i !== -1) graph.unActive.splice(i, 1)
-        graph.unActive.push(fn)
-      return
+      const i = graph.unActive.indexOf(fn);
+      if (i !== -1) graph.unActive.splice(i, 1);
+      graph.unActive.push(fn);
+      return;
     }
-    const cleanUp = fn();
-    if (fn?._sideEffect) {
-      const cleared = fn._sideEffect?.();
-      if (typeof cleared === 'function') cleared();
-    }
-    if (typeof cleanUp === 'function') cleanUp();
+    // The effect stores its own cleanup (see createEffect), so we just run it.
+    fn();
+    runSideEffect(fn);
   } catch (error) {
     errorControl(error);
   }
@@ -50,8 +77,8 @@ function scheduleRenderWithTimeBudget() {
   // Avoid scheduling if nothing to run or already scheduled
   if (scheduled.size === 0 || rafScheduled || scheduleInProgress) return;
   rafScheduled = true;
-  scheduleInProgress=true
-  performance.mark('update-start')
+  scheduleInProgress = true;
+  performance.mark('update-start');
   requestAnimationFrame((timestamp) => {
     const start = timestamp;
     const processed = [];
@@ -72,57 +99,65 @@ function scheduleRenderWithTimeBudget() {
     rafScheduled = false;
     // If more effects remain, schedule next frame
     if (scheduled.size > 0) {
-      scheduleInProgress=false
-      requestAnimationFrame(scheduleRenderWithTimeBudget)
-
-    }else{
-      scheduleInProgress=false
-            performance.mark('update-end')
-            performance.measure('ScheduleRender','update-start','update-end')
-            const [measure]=performance.getEntriesByName('ScheduleRender')
-            if(__pawaDev && __pawaDev?.tool)
-              if (__pawaDev.performance.effectTime.length === 10) {
-                __pawaDev.performance.effectTime=[]
-              }
-              __pawaDev.performance.effectTime.push(measure.duration.toFixed(2))
-            performance.clearMarks()
-            performance.clearMeasures()
+      scheduleInProgress = false;
+      requestAnimationFrame(scheduleRenderWithTimeBudget);
+    } else {
+      scheduleInProgress = false;
+      performance.mark('update-end');
+      performance.measure('ScheduleRender', 'update-start', 'update-end');
+      const [measure] = performance.getEntriesByName('ScheduleRender');
+      const dev = getDev();
+      if (dev && dev.tool && measure) {
+        if (dev.performance.effectTime.length === 10) {
+          dev.performance.effectTime = [];
+        }
+        dev.performance.effectTime.push(measure.duration.toFixed(2));
+      }
+      performance.clearMarks();
+      performance.clearMeasures();
     }
   });
 }
 
-export const queueEffect = (effect,depsMap,schedule=false) => {
-
-  if (!queue.has(effect)) queue.add(effect);
-  // __pawaDev.totalEffect=queue.size
-  if (!isFlushing) {
-    isFlushing = true;
-    Promise.resolve().then(() => {
-      const effects = Array.from(queue);
-      queue.clear();
-      for (const fn of effects) {
-        if (schedule) {
-          scheduled.add(fn);
-        }else{
-          runEffectNow(fn)
-        }
-      }
-
-      if (!scheduleInProgress && schedule) {
-        scheduleRenderWithTimeBudget();
-      } // Trigger the frame-based scheduler
-      isFlushing = false;
-    });
-  }
+export const queueEffect = (effect, depsMap, schedule = false) => {
+  queue.set(effect, schedule || queue.get(effect) === true);
+  flushEffectQueue();
 };
 
-export const errorControl=(error, details = {})=>{
-  const message = error?.message || error?.msg || 'Unknown reactive error'
-  console.error(error);
+function flushEffectQueue() {
+  if (isFlushing) return;
+  isFlushing = true;
+  Promise.resolve().then(() => {
+    const effects = Array.from(queue.entries());
+    queue.clear();
+    let hasScheduledEffects = false;
+    for (const [fn, schedule] of effects) {
+      if (schedule) {
+        scheduled.add(fn);
+        hasScheduledEffects = true;
+      } else {
+        runEffectNow(fn);
+      }
+    }
 
-  const dev = typeof globalThis !== 'undefined'
-    ? globalThis.__pawaDev
-    : (typeof window !== 'undefined' ? window.__pawaDev : null)
+    if (!scheduleInProgress && hasScheduledEffects) {
+      scheduleRenderWithTimeBudget();
+    }
+    isFlushing = false;
+    if (queue.size > 0) flushEffectQueue();
+  });
+}
+
+export const errorControl = (error, details = {}) => {
+  const message = error?.message || error?.msg || 'Unknown reactive error';
+  console.error(error, message, error?.graph);
+
+  const dev =
+    typeof globalThis !== 'undefined'
+      ? globalThis.__pawaDev
+      : typeof window !== 'undefined'
+        ? window.__pawaDev
+        : null;
 
   if (dev && typeof dev.setError === 'function') {
     const payload = {
@@ -135,72 +170,88 @@ export const errorControl=(error, details = {})=>{
       effect: details.effect || error?.effect || null,
       ref: error?.ref || null,
       exp: details.exp || error?.exp || null,
-    }
-    dev.setError(payload)
-    return payload
+    };
+    dev.setError(payload);
+    return payload;
   }
 
-  return error
-}
-  
-  export const createEffect = (fn, el, update = null) => {
-    const effect = (id) => {
-        cleanupEffect(effect);
-        activeEffect = effect;
-        effect.el = el;
-        effect.parentEl = el?.parentElement;
-        let cleanUp = fn(id);
-        activeEffect = null;
-        if (typeof cleanUp === 'function') return cleanUp;
-    };
-
-    effect._sideEffect = update;
-    effect._id = crypto.randomUUID();
-    effect._done = false;
-    effect._killed = false;      // NEW — replaces the old `_dep=null` line
-    let effectQueue = new Set();
-    let isBatching = false;
-
-    function batchEffect() {
-        if (isBatching) return;
-        isBatching = true;
-        Promise.resolve().then(() => {
-            effectQueue.forEach(eff => {
-                try {
-                    if (!eff._killed) eff();   // NEW — guard here too, in case a kill happens mid-batch
-                } catch (error) {
-                    errorControl(error);
-                }
-            });
-            effectQueue.clear();
-            isBatching = false;
-        });
-    }
-
-    const runEffect = () => {
-        effectQueue.add(effect);
-        batchEffect();
-    };
-
-    runEffect();
-    try {
-        const clear = update?.();
-        if (typeof clear === 'function') clear();
-    } catch (error) {
-        errorControl(error);
-    }
-
-    const deletes = () => {
-        cleanupEffect(effect);       // unsubscribe from every dep set
-        effect._killed = true;       // NEW — mark dead instead of Set.add
-    };
-
-    if (el?.effect) {
-        el.effect.push(deletes);
-    }
-    return deletes;
+  return error;
 };
-  
+
+export const createEffect = (fn, el, update = null) => {
+  const effect = (id) => {
+    cleanupEffect(effect); // unsubscribe from deps
+    runCleanup(effect); // run the PREVIOUS run's cleanup first
+    const prev = activeEffect;
+    activeEffect = effect;
+    effect.el = el;
+    try {
+      const c = fn(id);
+      if (typeof c === 'function') {
+        effect._cleanup = c; // store it, do NOT call it now
+      } else {
+        const dev = getDev();
+        if (dev && c && typeof c.then === 'function') {
+          console.warn(
+            '[pawa] Effect function returned a Promise. Async effects cannot ' +
+              'return a cleanup, and deps read after the first await are not tracked.'
+          );
+        }
+      }
+    } finally {
+      activeEffect = prev; // restore parent effect (nested effects) even if fn throws
+    }
+  };
+
+  effect._sideEffect = update;
+  effect._id = crypto.randomUUID();
+  effect._done = false;
+  effect._killed = false;
+  effect._cleanup = null;
+  effect._sideCleanup = null;
+  let effectQueue = new Set();
+  let isBatching = false;
+
+  function batchEffect() {
+    if (isBatching) return;
+    isBatching = true;
+    Promise.resolve().then(() => {
+      effectQueue.forEach((eff) => {
+        try {
+          if (!eff._killed) eff(); // cleanup is stored inside the effect itself
+        } catch (error) {
+          errorControl(error);
+        }
+      });
+      effectQueue.clear();
+      isBatching = false;
+    });
+  }
+
+  const runEffect = () => {
+    effectQueue.add(effect);
+    batchEffect();
+  };
+
+  runEffect();
+  try {
+    runSideEffect(effect);
+  } catch (error) {
+    errorControl(error);
+  }
+
+  const deletes = () => {
+    cleanupEffect(effect); // unsubscribe from every dep set
+    runCleanup(effect); // final cleanup on teardown
+    runCleanup(effect, '_sideCleanup');
+    effect._killed = true;
+  };
+
+  if (el?.effect) {
+    el.effect.push(deletes);
+  }
+  return deletes;
+};
 
 export const track = (target, key) => {
   if (activeEffect) {
@@ -213,11 +264,12 @@ export const track = (target, key) => {
       depsMap.set(key, (dep = new Set()));
     }
     dep.add(activeEffect);
-    // NEW: effect remembers every dep-set it's a member of
+    // effect remembers every dep-set it's a member of
     if (!activeEffect._deps) activeEffect._deps = new Set();
     activeEffect._deps.add(dep);
   }
 };
+
 function cleanupEffect(effect) {
   if (effect._deps) {
     for (const dep of effect._deps) {
@@ -226,26 +278,28 @@ function cleanupEffect(effect) {
   }
   effect._deps = new Set();
 }
+
 export const stopEffect = (effect) => {
-    cleanupEffect(effect);
-    effect._killed = true;
+  cleanupEffect(effect);
+  runCleanup(effect);
+  runCleanup(effect, '_sideCleanup');
+  effect._killed = true;
 };
 
-
 export const trigger = (target, key, trans) => {
-    const depsMap = targetMap.get(target);
-    if (depsMap) {
-        const dep = depsMap.get(key);
-        if (dep) {
-            dep.forEach(effect => {
-                if (!effect._killed) {           // NEW — was: !deleteEffect.has(effect._id)
-                    let schedule = false;
-                    if (trans && trans.type === 'schedule') {
-                        schedule = true;
-                    }
-                    queueEffect(effect, depsMap, schedule);
-                }
-            });
+  const depsMap = targetMap.get(target);
+  if (depsMap) {
+    const dep = depsMap.get(key);
+    if (dep) {
+      dep.forEach((effect) => {
+        if (!effect._killed) {
+          let schedule = false;
+          if (trans && trans.type === 'schedule') {
+            schedule = true;
+          }
+          queueEffect(effect, depsMap, schedule);
         }
+      });
     }
+  }
 };

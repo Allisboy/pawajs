@@ -1,13 +1,14 @@
-import { getComponentGraph } from "../component/index.js"
+import { getComponentGraph, keepComponentGraph } from "../component/index.js"
 import { customEventMap } from "../global.js"
 import { getServerInstance } from "../server/index.js"
+import { findContext } from "./context.js"
 import { stateWatch } from "./state.js"
 
 const serverInstance=getServerInstance()
 /**
  * to validate component for runtime rules
  * @param {Function} component
- * @param {{[any]:{type?:Function|String|Object|Number|Array},defaut?:number|string|Array|object,err?:string,strict?:boolean}} object
+ * @param {{[any:string]:{type?:Function|String|Object|Number|Array,default?:number|string|Array|object,err?:string,strict?:boolean}}} object
  * 
  */
 export const useValidateComponent = (component, object) => {
@@ -83,17 +84,12 @@ export const useRef=()=>{
  * @return {object}
  */
 export const useContext = (context) => {
-    
         const componentGraph=getComponentGraph()
         if (!componentGraph) {
             console.warn('getContext must be called inside of a component')
             return
         }
-        if (componentGraph?.transport[context.id]) {
-            const contexts = componentGraph.transport[context.id]
-            return contexts
-        } 
-    
+        return findContext(componentGraph, context.id)
 }
 
 /**
@@ -214,4 +210,13 @@ Object.assign(componentGraph.context, obj)
         const componentGraph=getComponentGraph()
         componentGraph.runEffect=true
     }
+}
+export const useAsync=()=>{
+   const graph=getComponentGraph()
+   return {
+    $async:(caller)=>{
+        keepComponentGraph(graph)
+        return caller()
+    }
+   }
 }

@@ -5,11 +5,11 @@ pawajs - power the web (reactivity and html runtime)
 
 **A lightweight and reactive JavaScript library for building modern web interfaces with a simple, declarative syntax (15kb).**
 
-PawaJS (reactive web runtime) is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system, no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering using pawa-ssr (server rendering runtime) and pawajs-continue (continuity runtime), PawaJS is equipped for performance and scalability.
+PawaJS (reactive web runtime) is a JavaScript library designed for building dynamic user interfaces. It combines a component-based architecture and progressive enhancement with a powerful reactivity system, no v-dom. Its intuitive, directive-based templating feels familiar and makes it easy to create interactive applications, from simple widgets to complex single-page apps. With built-in support for server-side rendering using @pawajs/ssr (server rendering runtime) and @pawajs/continue (continuity runtime), PawaJS is equipped for performance and scalability.
 
 PawaJS is a **reactive web runtime** for HTML-first UIs: components, directives, and fine-grained `$state` updates with **no virtual DOM**.
 
-On the client it powers widgets through SPAs. With **pawa-ssr** and **pawajs-continue** it uses **selective continue** (SCP): the server sends HTML plus a sparse index of reactive areas; the client continues only those areas. **Static components are stripped** from that index so they are not re-executed on the client.
+On the client it powers widgets through SPAs. With **pawajs/ssr** and **pawajs/continue** it uses **selective continue** (SCP): the server sends HTML plus a sparse index of reactive areas; the client continues only those areas. **Static components are stripped** from that index so they are not re-executed on the client.
 
 🌐 **Website:** [pawajs.vercel.app](https://pawajs.vercel.app)
 
@@ -22,7 +22,7 @@ On the client it powers widgets through SPAs. With **pawa-ssr** and **pawajs-con
 -   **Component-Based Architecture:** Build encapsulated components with just a JS function that manages its own state, making your code more reusable and maintainable. Components are synchronous by default — no async component mode to reason about.
 -   **First-Class Async Handling:** Fetch and await data directly in your templates with the `await` / `as-fallback` / `as-catch` directives — no special component wiring required.
 -   **Efficient List Rendering:** Render lists of data with the `for-each` directive, including support for keyed updates for optimal performance.
--   **Lifecycle Hooks:** Tap into a component's lifecycle with `mount` and `unmount` directives, or the `runEffect` hook for more complex side effects.
+-   **Lifecycle Hooks:** Tap into `runEffect` hook for more complex side effects.
 -   **Context API:** Pass data through the component tree without having to pass props down manually at every level.
 
 - **Selective continue (SSR):** `@pawa/ssr` emits HTML + SCP; `@pawajs/continue` binds reactive regions only. Static UI stays plain HTML (no client re-execution).
@@ -124,7 +124,7 @@ Here's a basic example to show you how PawaJS works.
 
 **`app.js`**
 ```javascript
-import { pawaStartApp, $state, useInsert, RegisterComponent, html } from './pawajs/index.js';
+import { pawaStartApp, $state, useInsert, RegisterComponent, html } from 'pawajs';
 
 // 1. Define a component
 const CounterApp = () => {
@@ -217,13 +217,12 @@ schedule(() => {
 
 ### Components
 
-Components are the building blocks of your application. In PawaJS, a component is a **synchronous** JavaScript function that returns an HTML template string, or nothing.
+Components are the building blocks of your application. In PawaJS, a component is a **synchronous** or **asychronous** JavaScript function that returns an HTML template string, or nothing.
 
 -   **Defining:** Create a function that returns a template or not.
 -   **Registering:** Use `RegisterComponent(MyComponent)` to make it available globally. In HTML, you can then use it as `<my-component>`.
 -   **`useInsert`:** To make variables, state, and functions from your component's setup available in its template, pass them in an object to `useInsert()`.
-
-Components are always synchronous — there's no separate "async component" mode to learn. If a component needs to fetch or await data, reach for the [`await` directive](#await--as-fallback--as-catch) inside its template instead.
+  **Asynchronous Components:** Pawajs lets you define component to be asynchronous with rules to keep, either use any pawajs hooks before await or wrap any pawajs hook with [`$async` from `useAsync` hook].But note Async component isn't meant to fetch data inside of component use other pawajs provided features like (#await--as-fallback--as-catch) inside its template instead.
 
 ### Templating
 

@@ -1,4 +1,3 @@
-import { InProxyCaller } from "../hooks/state.js";
 import { createEffect } from "../reactive.js";
 import { getContexters, safeEval } from "../utils.js";
 
@@ -11,9 +10,8 @@ export const text=(el,context,graph)=>{
     textNodes.forEach(node => {
         nodesMap.set(node, node.nodeValue);
     });
-    const getValue=(proxy=false)=>{
-        //check if its reactive
-           const{inProxy}= InProxyCaller(()=>{
+    const getValue=()=>{
+
                 textNodes.forEach(textNode => {
                 // Always use original content from map for evaluation
                 let value = nodesMap.get(textNode);
@@ -28,23 +26,16 @@ export const text=(el,context,graph)=>{
                     textNode.nodeValue = value;
                 }
             })
-            },proxy)
-            return {inProxy}
-    }
-    let enter=true
+            
+            }
     const evaluate=()=>{
         try {
             
-            const {inProxy}=getValue(enter)
-            enter=false
-            if (!inProxy) {
-                for (const effect of graph.effect) {
-                    effect()
-                }
-            }
+            getValue()
+            
         } catch (error) {
             throw  {
-          ...error,
+          msg:error.message,
           effect:'Text',
           ref:el,
           exp:attr.value

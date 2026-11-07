@@ -28,13 +28,10 @@ When adding a new construct or directive, ask this same question before inventin
 ## Package layout
 
 - **`pawajs` (core)** — the reactive engine, Graph/render system, control-flow directives, component handling, built-ins (`Active`, `Transition`). No SSR code, no `linkedom`. Ships to the client. Current size: **6.6kB gzipped** (down from 17.7kB pre-rewrite, with more capability — see `bundlephobia.com/package/pawajs`).
-- **`pawa-ssr`** — server-side render pass. Produces HTML + a continuity JSON payload (SCP). Depends on `linkedom` for server-side DOM. Never ships to the client.
-- **`pawajs-continue`** — client-side resumer (`PawaContinue`). Consumes the HTML + JSON pair `pawa-ssr` produces and attaches live reactivity without re-rendering.
+- **`@pawajs/ssr`** — server-side render pass. Produces HTML + a continuity JSON payload . Depends on `linkedom` for server-side DOM. Never ships to the client.
+- **`@pawajs/continue`** — client-side resumer (`PawaContinue`). Consumes the HTML + JSON pair `pawa-ssr` produces and attaches live reactivity without re-rendering.
 - **`pawajs-dom-router`** — pure client-side router. No server involvement past initial load.
-- **`supapawajs`** — full-stack meta-framework on Express. Owns delivery strategy: normal SSR, streaming, or SSG. Calls `pawa-ssr`/`pawajs-continue` but doesn't duplicate their logic. Route navigation fetches data only — it does **not** re-invoke `pawaServer`.
 - **`pawajs-vite-plugin`** — build tooling, HMR, state preservation across reloads.
-
-`pawa-ssr` and `pawajs-continue` don't know about delivery mode (streamed vs. cached vs. per-request) — that's entirely `supapawajs`'s job. Keep that boundary intact.
 
 ---
 
@@ -78,7 +75,7 @@ When touching this file: **test with a running app, not just by reading the diff
 
 ## SSR / Continuity (SCP — Server Continuation Protocol)
 
-The core idea: SSR produces (a) real HTML with `p:id` attributes marking construct boundaries, and (b) a flat, id-keyed JSON payload carrying only what's genuinely needed to resume without recomputation. The client resumer (`pawajs-continue`) walks the JSON, not the DOM — one targeted lookup per entry via `p:id`, never a DOM traversal.
+The core idea: SSR produces (a) real HTML with `p:id` attributes marking construct boundaries, and (b) a flat, id-keyed JSON payload carrying only what's genuinely needed to resume without recomputation. The client resumer (`@pawajs/continue`) walks the JSON, not the DOM — one targeted lookup per entry via `p:id`, never a DOM traversal.
 
 ### Payload principles — do not violate these when adding a new construct
 

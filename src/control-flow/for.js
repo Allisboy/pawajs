@@ -254,7 +254,7 @@ const enqueueUpdate = (array, arrayKey) => {
         } catch (error) {
             console.log(error)
             throw {
-                ...error,
+                msg:error.message,
                 ref:el,
                 effect:'for-each',
                 exp:attr.value

@@ -49,8 +49,10 @@ export const Awaits=(el, attr, context, componentContext, graph)=>{
                 comment.parentElement.insertBefore(whileAwait, comment)
                 render(whileAwait)
             }
-           new Promise(async r =>{
-            r(await cache(...values)())
+            new Promise(async r =>{
+               const promise=typeof cache === 'function' ?await cache(...values)() :await cache
+            
+            r(promise)
            }).then((res)=>{
                 awaits.removeAttribute('await')
                 keepComponentGraph(componentGraph)
@@ -65,8 +67,10 @@ export const Awaits=(el, attr, context, componentContext, graph)=>{
             })
             
         } catch (error) {
+            console.error('[Await Error]',error,'the await expression must be a function that returns a promise or a promise itself');
+            
             throw {
-                ...error,
+                msg:error.message,
                 ref:el,
                 effect:'Awaiting',
                 exp:attr.value

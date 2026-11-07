@@ -461,6 +461,126 @@ export const getComponentGraph: () => any;
 export const useStorage: (createCall: () => any, name: string) => any;
 
 /**
+ * Runs a callback with the component context captured by this hook.
+ * The callback's return type is preserved, including when it returns a Promise.
+ */
+export interface AsyncContext {
+  $async<T>(caller: () => T): T;
+}
+
+export const useAsync: () => AsyncContext;
+
+/** Attributes treated as primary Pawa directives. */
+export const primaryAttribute: Set<string>;
+
+/** Reads the currently configured server-side Pawa instance. */
+export const getServerInstance: () => any;
+
+/** Adds values to the configured server-side Pawa instance. */
+export const setServer: (values?: Record<string, any>) => void;
+
+/** Sets a DOM element property or initializes a matching property plugin. */
+export const ElementProperty: (
+  element: HTMLElement,
+  name: string,
+  value: any,
+  graph?: PawaGraph,
+  context?: Record<string, any>
+) => boolean;
+
+/** Initializes conditional rendering for an element. */
+export const ifInitializer: (...args: any[]) => void;
+
+/** Initializes keyed rendering for an element. */
+export const keyInitializer: (...args: any[]) => void;
+
+/** Initializes list rendering for an element. */
+export const forInitializer: (...args: any[]) => void;
+
+/** Links an if/else-if/else chain of elements. */
+export const setChained: (element: HTMLElement, chained: any[], condition?: string) => Map<any, any>;
+
+/** Watches reactive dependencies and returns a cleanup function. */
+export const stateWatch: (
+  callback: (...args: any[]) => any,
+  dependencies: any[]
+) => (() => void) | undefined;
+
+/** Splits a template context into variable names and their values. */
+export const getContexters: (contexts?: Record<string, any>) => {
+  keys: string[];
+  values: any[];
+};
+
+/** Processes directive attributes on a node using a template context. */
+export const processNode: (node: HTMLElement, itemContext: Record<string, any> | number) => void;
+
+/** Normalizes a component or tag name to its registry key. */
+export const splitAndAdd: (name: string) => string;
+
+/** Tracks a reactive property access. */
+export const track: (target: object, key: PropertyKey) => void;
+
+/** Triggers effects subscribed to a reactive property. */
+export const trigger: (
+  target: object,
+  key: PropertyKey,
+  transition?: { type?: string; [key: string]: any }
+) => void;
+
+/** Schedules a reactive effect. */
+export const queueEffect: (effect: Function, dependencies: Map<any, any>, schedule?: boolean) => void;
+
+/** Creates an effect and returns its disposer. */
+export const createEffect: (
+  callback: (id?: any) => any,
+  graph: any,
+  update?: (() => any) | null
+) => () => void;
+
+/** Runs a function while the supplied reactive effect is active. */
+export const runWithEffect: (effect: Function, callback: () => any) => any;
+
+/** Stops and cleans up a reactive effect. */
+export const stopEffect: (effect: Function) => void;
+
+/** Reports an error to the runtime's development tooling when available. */
+export const errorControl: (error: any, details?: Record<string, any>) => any;
+
+/** The currently active reactive effect. */
+export let activeEffect: Function | null;
+
+/** Reactive dependency map keyed by target objects. */
+export const targetMap: WeakMap<object, Map<any, Set<Function>>>;
+
+/** Reactive listeners keyed by target objects. */
+export const listeners: WeakMap<object, any>;
+
+/** Validates component props against a validation contract. */
+export const propsValidator: (...args: any[]) => any;
+
+/** Removes script tags from a template string. */
+export const sanitizeTemplate: (template: string) => string;
+
+/** Creates a component instance from an element and its render context. */
+export const createComponent: (...args: any[]) => any;
+
+/** Sets the currently active component graph. */
+export const keepComponentGraph: (graph: any) => void;
+
+/** Creates a snapshot of values inserted into a component context. */
+export const snapshotInsert: (context: Record<string, any>) => Record<string, any>;
+
+/** Checks whether two initial values are identical. */
+export const sameInitial: (first: any, second: any) => boolean;
+
+/** Adds an element or component loader to the lazy-load queue. */
+export const addLazyComponentElement: (element: HTMLElement | string, callback: Function) => void;
+
+/** Loads a registered lazy component by its tag name. */
+export const triggerLazyLoad: (tagName: string) => void;
+
+/**
  * Schedules a reactive update batch.
  * @param callback Callback to run through the scheduler.
  */

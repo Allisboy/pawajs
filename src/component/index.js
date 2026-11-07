@@ -1,4 +1,4 @@
-import { getDev } from "../dev/index.js"
+import { getDevelopment } from "../../index.js"
 import { components, hmrComponentsMap, restorePawaStateFromContext, snapshotInsert } from "../global.js"
 import { PawaRender } from "../graph/index.js"
 import { stateWatch } from "../hooks/state.js"
@@ -10,7 +10,9 @@ import { initaiteComponent, isSvgFragment, propsValidator, renderAschild, saniti
 let componentGraph={transport:{},onExit:()=>{},initialInsert:{},componentChildren:[],mount:[],unMount:[],effect:[],onEnter:()=>{},name:'ROOT',context:{},props:{},reProps:[]}
 
 export const keepComponentGraph=(graph)=>{
-    componentGraph=graph
+    if (typeof window !== 'undefined') {
+      componentGraph=graph
+    }
 }
 export const getComponentGraph=()=>{
   if (typeof window !== 'undefined') {
@@ -34,12 +36,13 @@ export const createComponent=(el,context,graph,compareGraph)=>{
     const template=el.cloneNode(true)
     const former=componentGraph
     renderGraph.former=former
-    componentGraph=renderGraph
+    setComponentGraph(renderGraph)
     renderGraph.context={...context}
     renderGraph.nodeType='component'
     renderGraph.rest={}
-    
-    Object.assign(renderGraph.transport, former?.transport || {})
+    // console.log(el.tagName);
+       
+    renderGraph.transport={}
     el.replaceWith(comment)
     for (const [key,value] of Object.entries({...prop,...stringProp})) {
         mainProp[key]=(c)=>{
@@ -47,10 +50,11 @@ export const createComponent=(el,context,graph,compareGraph)=>{
                 renderGraph.reProps.push({key:key,call:c})
             }
             return value()
+          }
+          
         }
-        
-    }
-    const component=components.get(splitAndAdd(el.tagName))
+        const component=components.get(splitAndAdd(el.tagName))
+        renderGraph.name=splitAndAdd(el.tagName)
     if (typeof component !== 'function') {
         throw new Error('Must be A functional Component')
     }
@@ -67,19 +71,23 @@ export const createComponent=(el,context,graph,compareGraph)=>{
         }
       }
     try {
-        const temp=sanitizeTemplate(component(mainProp))
-        if (getDev() && compareGraph) {
+      const compo=component(mainProp)
+       const initialize=(string)=>{
+        keepComponentGraph(renderGraph)
+         const temp=sanitizeTemplate(string ?? compo)
+        if (getDevelopment() && compareGraph) {
           restorePawaStateFromContext(compareGraph.context,renderGraph.context,compareGraph.initialInsert)
         }
         for (const effect of renderGraph.beforeMount) {
             const result=effect()
             if(typeof result === 'function')renderGraph.unMount.push(result)
         }
-        if(temp === '')return
-         let  div = isSvgFragment(temp) 
-        ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') 
-        : document.createElement('div');
-        div.innerHTML=temp
+      
+      let  div = isSvgFragment(temp) 
+      ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') 
+      : document.createElement('div');
+      div.innerHTML=temp
+      if (div.firstElementChild) {
         // console.log(el);
         const {element,asChild}=renderAschild(div,aschild,slot.default,document)
         if (!asChild) {
@@ -129,8 +137,15 @@ export const createComponent=(el,context,graph,compareGraph)=>{
           }
         }
       }
+      
+            comment.replaceWith(element)
+              setContext({...renderGraph.context})
+              render(element)
+    }else{
+      renderGraph.ref=comment
+    } 
      const componentName=splitAndAdd(el.tagName)
-      if (getDev()) {
+      if (getDevelopment()) {
             const id=Date.now() + Math.random()
             const removeFromHmrMap = () => {
       const array = hmrComponentsMap.get(componentName)
@@ -163,13 +178,8 @@ export const createComponent=(el,context,graph,compareGraph)=>{
       }
     }
   
-      comment.replaceWith(element)
-        setContext({...context,...renderGraph.context})
-        render(element)
-       
-      componentGraph=former
-      renderGraph.context={}
-      renderGraph.firstTime=false
+        //   renderGraph.context={}
+        renderGraph.firstTime=false
       Promise.resolve().then(()=>{
          for (const effect of renderGraph.arrayEffect) {
            const result= stateWatch(effect.effect,effect.deps)
@@ -184,11 +194,27 @@ export const createComponent=(el,context,graph,compareGraph)=>{
             if(typeof result === 'function')renderGraph.unMount.push(result)
         }
       })
+       }
+       
+       if (typeof compo === 'string') {
+        initialize()
+       }else if (compo instanceof Promise) {
+        // keepComponentGraph(renderGraph)
+        compo.then((res)=>{
+          initialize(res)
+          setComponentGraph(former) 
+        }).catch(err=>console.log(err));
+        
+       }
     } catch (error) {
+      console.log(error,renderGraph,el);
+      
       errorControl(error, {
         effect: 'component',
         el,
         template: el?.outerHTML,
       })
+    } finally {
+      setComponentGraph(former)
     }
 }

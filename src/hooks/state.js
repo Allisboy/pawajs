@@ -223,23 +223,22 @@ export const $state = (initialValue, section = null) => {
             if(Array.isArray(result)) {
                 let value=result.filter(r=> r.value.name === section)
                 value=value[0]
-                value=value.value
-             if (value?.success) {
+                 if (value && Object.prototype.hasOwnProperty.call(value, 'success')) {
                 
-                main.value=value.success
-                main.async=false
-                main.failed=false
+                states.value=value.success
+                states.async=false
+                states.failed=false
                 
              }else{
-                main.failed=true
-                main.value=value.error
+                states.failed=true
+                states.value=value.error
              }   
                 
             }
         }
         const graphId=graph?.id
         if (window.awaits?.[graphId]) {
-                // console.log(window.awaits[id]);
+                // console.log(window.awaits[graphId]);
              setup(window.awaits[graphId])   
             }else{
             states.value=result

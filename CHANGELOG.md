@@ -25,4 +25,5 @@ CHANGELOG.md
 + version 2.0.4 experimental of hmr
 + version 2.0.5 - 2.0.6 experimental of hmr
 + 2.4.0.beta.4 new pawajs Rewrite;
-+ 2.4.0.beta.5 - 2.4.0.beta.7 added LIS for ForEach directive
++ 2.4.0.beta.5 - 2.4.0.beta.7 added LIS for ForEach directive.
++ 2.4.1.beta.1 added async component by default with useAsync hook back
